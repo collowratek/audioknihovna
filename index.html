@@ -3,90 +3,174 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#12151b">
+<meta name="theme-color" content="#07040f">
 <title>Audioknihovna</title>
-<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23e8a33d'/%3E%3Ctext x='32' y='44' font-size='34' text-anchor='middle'%3E%F0%9F%8E%A7%3C/text%3E%3C/svg%3E">
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230d0620'/%3E%3Cpath d='M12 40V26a20 20 0 0140 0v14' stroke='%2300e5ff' stroke-width='4' fill='none'/%3E%3Crect x='8' y='36' width='12' height='18' rx='4' fill='%23ff2d95'/%3E%3Crect x='44' y='36' width='12' height='18' rx='4' fill='%23ff2d95'/%3E%3C/svg%3E">
 <style>
   :root{
-    --bg:#12151b; --panel:#1a1f28; --panel2:#222836; --line:#2c3444;
-    --tx:#e9edf4; --dim:#98a2b6; --acc:#e8a33d; --acc-dim:#7a5a22;
+    --bg:#07040f; --bg2:#0d0820; --panel:#130c28; --panel2:#1b1138;
+    --line:#2e1d5c; --line2:#432a86;
+    --tx:#eae6ff; --dim:#9b8cc7;
+    --mag:#ff2d95; --cyan:#00e5ff; --acid:#f7e94e; --viol:#8b5cf6;
+    --mono:"SF Mono",ui-monospace,Menlo,Consolas,monospace;
   }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-  body{margin:0;background:var(--bg);color:var(--tx);
+  html,body{overflow-x:hidden}
+  body{
+    margin:0;background:var(--bg);color:var(--tx);
     font:16px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
-    padding-bottom:env(safe-area-inset-bottom)}
-  header{position:sticky;top:0;z-index:20;background:rgba(18,21,27,.94);
-    backdrop-filter:blur(12px);border-bottom:1px solid var(--line);
-    padding:calc(10px + env(safe-area-inset-top)) 14px 10px;display:flex;align-items:center;gap:10px}
-  header h1{font-size:17px;margin:0;font-weight:650;flex:1;overflow:hidden;
-    text-overflow:ellipsis;white-space:nowrap}
+    padding-bottom:env(safe-area-inset-bottom);
+  }
+  /* mrizka a rastr v pozadi */
+  body::before{
+    content:"";position:fixed;inset:0;z-index:0;pointer-events:none;
+    background:
+      radial-gradient(90vw 60vh at 78% -10%, rgba(255,45,149,.16), transparent 62%),
+      radial-gradient(70vw 50vh at 10% 108%, rgba(0,229,255,.13), transparent 60%),
+      linear-gradient(var(--bg2),var(--bg));
+  }
+  body::after{
+    content:"";position:fixed;inset:0;z-index:1;pointer-events:none;opacity:.35;
+    background:repeating-linear-gradient(0deg,rgba(0,0,0,.5) 0 1px,transparent 1px 3px);
+    mix-blend-mode:multiply;
+  }
+  #app,.pl{position:relative;z-index:2}
+
+  header{
+    position:sticky;top:0;z-index:20;
+    background:linear-gradient(180deg,rgba(9,5,20,.97),rgba(9,5,20,.82));
+    backdrop-filter:blur(14px);border-bottom:1px solid var(--line);
+    padding:calc(11px + env(safe-area-inset-top)) 14px 11px;
+    display:flex;align-items:center;gap:11px;
+  }
+  header h1{
+    font:650 14px/1.2 var(--mono);letter-spacing:.16em;text-transform:uppercase;
+    margin:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+    color:var(--cyan);text-shadow:0 0 18px rgba(0,229,255,.5);
+  }
   button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
-  .btn{background:var(--panel2);border:1px solid var(--line);border-radius:10px;
-    padding:9px 14px;font-size:15px}
-  .btn:active{background:var(--line)}
-  .btn-acc{background:var(--acc);color:#1a1205;border-color:var(--acc);font-weight:650}
-  main{padding:14px;max-width:820px;margin:0 auto}
+  .btn{
+    background:var(--panel2);border:1px solid var(--line2);border-radius:3px;
+    padding:8px 13px;font:600 12px/1 var(--mono);letter-spacing:.09em;
+    text-transform:uppercase;color:var(--tx);
+  }
+  .btn:active{background:var(--line);border-color:var(--mag)}
+  .btn-acc{
+    background:linear-gradient(100deg,var(--mag),#c4187a);border-color:var(--mag);
+    color:#fff;box-shadow:0 0 22px rgba(255,45,149,.42);
+  }
+  main{padding:15px;max-width:860px;margin:0 auto}
 
   /* prihlaseni */
-  .login{max-width:440px;margin:8vh auto;padding:0 16px}
-  .login h2{margin:0 0 6px;font-size:22px}
-  .login p{color:var(--dim);font-size:14px;margin:0 0 18px}
-  input{width:100%;padding:13px;border-radius:11px;border:1px solid var(--line);
-    background:var(--panel);color:var(--tx);font:inherit;margin-bottom:12px}
-  details{margin-top:20px;color:var(--dim);font-size:13.5px}
-  details ol{padding-left:20px;line-height:1.7}
-  code{background:var(--panel2);padding:1px 6px;border-radius:5px;font-size:12.5px}
+  .login{max-width:430px;margin:9vh auto;padding:0 17px}
+  .login .kick{font:600 11px/1 var(--mono);letter-spacing:.3em;color:var(--mag);
+    text-transform:uppercase;margin-bottom:12px}
+  .login h2{
+    margin:0 0 8px;font:800 30px/1.05 var(--mono);letter-spacing:-.01em;
+    text-transform:uppercase;
+    background:linear-gradient(96deg,var(--cyan),var(--mag) 55%,var(--acid));
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+  }
+  .login p{color:var(--dim);font-size:14px;margin:0 0 20px}
+  input{
+    width:100%;padding:13px 14px;border-radius:3px;border:1px solid var(--line2);
+    background:rgba(8,4,18,.78);color:var(--tx);font:14px/1.3 var(--mono);margin-bottom:12px;
+  }
+  input:focus{outline:0;border-color:var(--cyan);box-shadow:0 0 0 3px rgba(0,229,255,.13)}
+  details{margin-top:22px;color:var(--dim);font-size:13px}
+  summary{cursor:pointer;color:var(--cyan);font:600 11px/1 var(--mono);
+    letter-spacing:.12em;text-transform:uppercase}
+  details ol{padding-left:20px;line-height:1.75;margin-top:11px}
+  code{background:var(--panel2);padding:1px 6px;border-radius:3px;
+    font:12px var(--mono);color:var(--acid)}
 
   /* knihovna */
-  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:14px}
-  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;
-    overflow:hidden;text-align:left;display:flex;flex-direction:column}
-  .card:active{border-color:var(--acc-dim)}
-  .cov{aspect-ratio:1;background:var(--panel2);display:flex;align-items:center;
-    justify-content:center;font-size:34px;color:var(--line)}
-  .cov img{width:100%;height:100%;object-fit:cover;display:block}
-  .meta{padding:9px 10px 11px}
-  .au{font-size:11.5px;color:var(--acc);text-transform:uppercase;letter-spacing:.4px;
-    margin-bottom:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .ti{font-size:13.5px;line-height:1.35;font-weight:600}
-  .sub{font-size:11.5px;color:var(--dim);margin-top:5px}
-  .bar{height:3px;background:var(--line);border-radius:2px;margin-top:7px;overflow:hidden}
-  .bar i{display:block;height:100%;background:var(--acc)}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(142px,1fr));gap:15px}
+  .card{
+    background:var(--panel);border:1px solid var(--line);border-radius:4px;
+    overflow:hidden;text-align:left;display:flex;flex-direction:column;
+    transition:border-color .16s,transform .16s;position:relative;
+  }
+  .card::after{
+    content:"";position:absolute;inset:0;pointer-events:none;
+    background:linear-gradient(160deg,rgba(0,229,255,.09),transparent 42%);
+  }
+  .card:active{border-color:var(--mag);transform:translateY(1px)}
+  .cov{aspect-ratio:1;background:var(--bg2);position:relative;overflow:hidden}
+  .cov svg,.cov img{width:100%;height:100%;display:block;object-fit:cover}
+  /* dvojtonova neonova uprava volnych fotek, at cela knihovna drzi jeden styl */
+  .cov.ph img{filter:grayscale(1) contrast(1.35) brightness(.62)}
+  .cov.ph .tint{position:absolute;inset:0;mix-blend-mode:color;opacity:.92;
+    background:linear-gradient(152deg,var(--a),var(--b))}
+  .cov.ph .glow{position:absolute;inset:0;mix-blend-mode:screen;opacity:.32;
+    background:radial-gradient(60% 45% at 72% 18%,var(--a),transparent 70%)}
+  .cov.ph .scan{position:absolute;inset:0;opacity:.4;
+    background:repeating-linear-gradient(0deg,rgba(0,0,0,.55) 0 1px,transparent 1px 3px)}
+  .cov.ph .fade{position:absolute;inset:0;
+    background:linear-gradient(180deg,transparent 44%,rgba(4,2,12,.9))}
+  .cov.ph .lbl{position:absolute;left:10px;right:10px;bottom:9px;
+    font:700 12px/1.15 var(--mono);letter-spacing:-.2px;color:#fff;
+    text-transform:uppercase;text-shadow:0 2px 14px rgba(0,0,0,.9)}
+  .cov.ph .rule{position:absolute;left:10px;bottom:4px;width:26px;height:2px;background:var(--a)}
+  .meta{padding:10px 11px 12px}
+  .au{
+    font:600 9.5px/1.3 var(--mono);color:var(--cyan);text-transform:uppercase;
+    letter-spacing:.13em;margin-bottom:4px;overflow:hidden;
+    text-overflow:ellipsis;white-space:nowrap;
+  }
+  .ti{font-size:13.5px;line-height:1.32;font-weight:650;letter-spacing:-.005em}
+  .sub{font:10.5px/1 var(--mono);color:var(--dim);margin-top:7px;letter-spacing:.06em}
+  .bar{height:2px;background:var(--line);margin-top:7px;overflow:hidden}
+  .bar i{display:block;height:100%;background:linear-gradient(90deg,var(--cyan),var(--mag));
+    box-shadow:0 0 9px rgba(255,45,149,.75)}
 
   /* detail */
-  .head{display:flex;gap:14px;margin-bottom:18px}
-  .head .cov{width:112px;height:112px;flex:0 0 112px;border-radius:12px}
-  .head h2{margin:0 0 4px;font-size:19px;line-height:1.25}
-  .head .a{color:var(--acc);font-size:13.5px;margin-bottom:8px}
-  .tr{display:flex;align-items:center;gap:11px;padding:11px 10px;border-radius:10px;
-    width:100%;text-align:left;border:1px solid transparent}
+  .head{display:flex;gap:15px;margin-bottom:20px}
+  .head .cov{width:118px;height:118px;flex:0 0 118px;border:1px solid var(--line2);border-radius:4px}
+  .head .cov .lbl,.head .cov .rule{display:none}   /* na malém náhledu by se nevešly */
+  .head h2{margin:0 0 5px;font-size:20px;line-height:1.2;font-weight:700}
+  .head .a{color:var(--cyan);font:600 10.5px/1.3 var(--mono);letter-spacing:.13em;
+    text-transform:uppercase;margin-bottom:9px}
+  .tr{
+    display:flex;align-items:center;gap:11px;padding:11px 10px;width:100%;
+    text-align:left;border:1px solid transparent;border-left:2px solid transparent;
+  }
   .tr:active{background:var(--panel)}
-  .tr.on{background:var(--panel);border-color:var(--acc-dim)}
-  .tr .n{width:30px;text-align:right;color:var(--dim);font-size:13px;
-    font-variant-numeric:tabular-nums;flex:0 0 30px}
+  .tr.on{background:var(--panel);border-left-color:var(--mag)}
+  .tr.on .t{color:var(--mag)}
+  .tr .n{width:30px;text-align:right;color:var(--dim);font:11.5px var(--mono);
+    flex:0 0 30px}
   .tr .t{flex:1;font-size:14.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .tr .d{color:var(--dim);font-size:12.5px;font-variant-numeric:tabular-nums}
+  .tr .d{color:var(--dim);font:11px var(--mono)}
   .tr.done .t{color:var(--dim)}
 
   /* prehravac */
-  .pl{position:fixed;left:0;right:0;bottom:0;z-index:30;background:var(--panel);
-    border-top:1px solid var(--line);padding:10px 14px calc(12px + env(safe-area-inset-bottom));
-    display:none}
+  .pl{
+    position:fixed;left:0;right:0;bottom:0;z-index:30;
+    background:linear-gradient(180deg,rgba(19,12,40,.97),rgba(9,5,20,.99));
+    backdrop-filter:blur(14px);border-top:1px solid var(--mag);
+    box-shadow:0 -12px 44px rgba(255,45,149,.17);
+    padding:11px 15px calc(13px + env(safe-area-inset-bottom));display:none;
+  }
   .pl.on{display:block}
-  .pl .now{font-size:13px;color:var(--dim);margin-bottom:8px;overflow:hidden;
-    text-overflow:ellipsis;white-space:nowrap}
-  .pl .now b{color:var(--tx);font-weight:600}
-  .seek{width:100%;accent-color:var(--acc);margin:0 0 4px}
-  .times{display:flex;justify-content:space-between;color:var(--dim);font-size:11.5px;
-    font-variant-numeric:tabular-nums;margin-bottom:8px}
+  .pl .now{font:11.5px/1.4 var(--mono);color:var(--dim);margin-bottom:9px;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;letter-spacing:.04em}
+  .pl .now b{color:var(--cyan);font-weight:600}
+  .seek{width:100%;accent-color:var(--mag);margin:0 0 4px}
+  .times{display:flex;justify-content:space-between;color:var(--dim);
+    font:10.5px var(--mono);margin-bottom:9px}
   .ctl{display:flex;align-items:center;justify-content:center;gap:8px}
-  .ctl button{padding:8px 12px;border-radius:10px;font-size:15px}
-  .ctl .play{background:var(--acc);color:#1a1205;width:54px;height:54px;border-radius:27px;
-    font-size:21px;display:flex;align-items:center;justify-content:center}
-  .rate{font-size:13px;color:var(--dim);min-width:38px}
-  .empty{color:var(--dim);text-align:center;padding:40px 0}
-  .err{background:#3a1d1d;border:1px solid #6b2f2f;color:#ffbcbc;padding:11px 13px;
-    border-radius:11px;font-size:14px;margin-bottom:14px}
+  .ctl button{padding:8px 11px;border-radius:3px;font:600 11px var(--mono)}
+  .ctl .play{
+    background:linear-gradient(100deg,var(--mag),#b3106c);color:#fff;
+    width:54px;height:54px;border-radius:27px;font-size:19px;border:0;
+    display:flex;align-items:center;justify-content:center;
+    box-shadow:0 0 26px rgba(255,45,149,.5);
+  }
+  .empty{color:var(--dim);text-align:center;padding:44px 0;font:12px var(--mono);
+    letter-spacing:.1em;text-transform:uppercase}
+  .err{background:rgba(90,10,40,.6);border:1px solid var(--mag);color:#ffc2df;
+    padding:11px 13px;border-radius:3px;font-size:14px;margin-bottom:15px}
 </style>
 </head>
 <body>
@@ -125,25 +209,22 @@ let WST = localStorage.getItem('wst') || '';
 const app = document.getElementById('app');
 const au = document.getElementById('au');
 const pl = document.getElementById('pl');
+const el = id => document.getElementById(id);
 
 /* ---------- API ---------- */
 async function api(ep, params) {
-  const body = new URLSearchParams(Object.assign({ wst: WST }, params));
   const r = await fetch(API + ep + '/', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body
+    body: new URLSearchParams(Object.assign({ wst: WST }, params))
   });
-  const txt = await r.text();
-  const doc = new DOMParser().parseFromString(txt, 'text/xml');
-  const st = doc.querySelector('status')?.textContent;
-  if (st !== 'OK') throw new Error(doc.querySelector('message')?.textContent || 'Chyba API');
+  const doc = new DOMParser().parseFromString(await r.text(), 'text/xml');
+  if (doc.querySelector('status')?.textContent !== 'OK')
+    throw new Error(doc.querySelector('message')?.textContent || 'Chyba API');
   return doc;
 }
-
 async function listDir(path) {
-  const out = [];
-  let offset = 0;
+  const out = []; let offset = 0;
   for (;;) {
     const doc = await api('files', {
       path, private: '1', sort_by: 'name', sort_order: 'asc',
@@ -151,70 +232,188 @@ async function listDir(path) {
     });
     const items = [...doc.querySelectorAll('response > file, response > folder')];
     if (!items.length) break;
-    for (const n of items) {
-      out.push({
-        kind: n.tagName,
-        ident: n.querySelector('ident')?.textContent || '',
-        name: n.querySelector('name')?.textContent || '',
-        size: +(n.querySelector('size')?.textContent || 0)
-      });
-    }
+    for (const n of items) out.push({
+      kind: n.tagName,
+      ident: n.querySelector('ident')?.textContent || '',
+      name: n.querySelector('name')?.textContent || '',
+      size: +(n.querySelector('size')?.textContent || 0)
+    });
     if (items.length < 100) break;
     offset += items.length;
   }
   return out;
 }
+const fileLink = async ident => (await api('file_link', {
+  ident, download_type: 'file_download', device_uuid: UUID, force_https: '1'
+})).querySelector('link')?.textContent || '';
 
-async function fileLink(ident) {
-  const doc = await api('file_link', {
-    ident, download_type: 'file_download', device_uuid: UUID, force_https: '1'
-  });
-  return doc.querySelector('link')?.textContent || '';
-}
-
-/* ---------- stav ---------- */
+/* ---------- pomocne ---------- */
 const pos = {
-  get(book) { try { return JSON.parse(localStorage.getItem('pos:' + book)) || null; } catch { return null; } },
-  set(book, v) { localStorage.setItem('pos:' + book, JSON.stringify(v)); }
+  get(b) { try { return JSON.parse(localStorage.getItem('pos:' + b)); } catch { return null; } },
+  set(b, v) { localStorage.setItem('pos:' + b, JSON.stringify(v)); }
 };
 const coverCache = {};
-
+const esc = s => s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 function splitName(n) {
   const i = n.indexOf(' - ');
-  return i > 0 ? { author: n.slice(0, i).replace(/,\s*/, ', '), title: n.slice(i + 3) }
-               : { author: '', title: n };
+  return i > 0 ? { author: n.slice(0, i), title: n.slice(i + 3) } : { author: '', title: n };
 }
 function fmt(s) {
   if (!isFinite(s) || s < 0) s = 0;
-  const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), q = Math.floor(s % 60);
+  const h = ~~(s / 3600), m = ~~(s % 3600 / 60), q = ~~(s % 60);
   return h ? `${h}:${String(m).padStart(2, '0')}:${String(q).padStart(2, '0')}`
            : `${m}:${String(q).padStart(2, '0')}`;
 }
 
-/* ---------- prehravac ---------- */
-let cur = null; // {book, tracks, idx}
-const el = id => document.getElementById(id);
+/* ---------- ilustrace ----------
+   Volne fotky ulozene v repozitari, prirazene pevne ke kazde knize
+   a prebarvene do dvojtonu, aby knihovna drzela jeden vizual.          */
+const ART = {
+  "Bradbury, Ray - 451 stupňů Fahrenheita": "f52dc2c91a",
+  "Christie, Agatha - Třikrát slečna Marplová": "07cf7308de",
+  "Detektivní příběhy": "dc7f32a2cc",
+  "Gaiman, Neil - Kniha hřbitova": "007411853e",
+  "Gibson, William - Neuromancer": "e223b30b61",
+  "Herbert, Frank - Duna 02 - Spasitel Duny": "de312f5b03",
+  "Hotakainen, Kari - Hry a literatura ve streamu (ČRo Vltava 2012-10-25)": "703b18ba5f",
+  "Hrabal, Bohumil - Baron Prášil": "b81fa6dc42",
+  "Keyes, Daniel - Růže pro Algernon": "5aeee8febd",
+  "King, Stephen - Čím temnější, tím lepší": "3832c088ea",
+  "Kling, Marc-Uwe - QualityLand": "e120808b2b",
+  "Kundera, Milan - Nesnesitelná lehkost bytí": "5ae34e10ea",
+  "Kundera, Milan - Nevědění": "7b48eabbfc",
+  "Lehké fantastično": "4b5956f694",
+  "Lem, Stanisław - Futurologický kongres": "1783485677",
+  "Liou Cch'-sin - Vzpomínka na Zemi 01 - Problém tří těles": "b5d46a030b",
+  "Liou Cch'-sin - Vzpomínka na Zemi 02 - Temný les": "b63e65660b",
+  "Mamet, David - Ještě se uvidí, kdo vyhraje": "2d7d5b349d",
+  "Nowra, Louis - Léto mimozemšťanů": "d52a308dca",
+  "Olmerka 1-3": "678d16efa8",
+  "Simmons, Dan - Terror": "94c13cbd44",
+  "Svěrák, Zdeněk - Nové povídky": "95f515f277"
+};
+function artHTML(book) {
+  const id = ART[book];
+  if (!id) return coverSVG(book);           // nova kniha bez prirazene fotky
+  const { title } = splitName(book);
+  const [a, b] = PALETTES[hash(book) % PALETTES.length];
+  return `<img src="img/${id}.jpg" alt="" loading="lazy">
+    <span class="tint" style="--a:${a};--b:${b}"></span>
+    <span class="glow" style="--a:${a}"></span>
+    <span class="scan"></span><span class="fade"></span>
+    <span class="lbl">${esc(title)}</span>
+    <span class="rule" style="--a:${a}"></span>`;
+}
 
+/* ---------- zalozni generovana obalka ---------- */
+const PALETTES = [
+  ['#ff2d95', '#00e5ff', '#12042a'], ['#f7e94e', '#ff2d95', '#1a0430'],
+  ['#00e5ff', '#8b5cf6', '#080825'], ['#ff6b35', '#00e5ff', '#1d0620'],
+  ['#39ff88', '#ff2d95', '#041a14'], ['#8b5cf6', '#f7e94e', '#160a2e'],
+  ['#ff2d95', '#39ff88', '#0a0620'], ['#00e5ff', '#f7e94e', '#0d1030']
+];
+function hash(s) {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return Math.abs(h);
+}
+function coverSVG(book) {
+  const { author, title } = splitName(book);
+  const h = hash(book);
+  const [c1, c2, bg] = PALETTES[h % PALETTES.length];
+  const rnd = (n, seed) => (hash(book + seed) % n);
+  const W = 300;
+
+  // horizont mrizky
+  let grid = '';
+  for (let i = 0; i <= 10; i++) {
+    const y = 196 + i * i * 1.15;
+    if (y < W) grid += `<line x1="0" y1="${y}" x2="${W}" y2="${y}" stroke="${c2}" stroke-width=".7" opacity=".3"/>`;
+  }
+  for (let i = -6; i <= 6; i++)
+    grid += `<line x1="${150 + i * 13}" y1="196" x2="${150 + i * 95}" y2="${W}" stroke="${c2}" stroke-width=".7" opacity=".22"/>`;
+
+  // vertikalni "mesto"
+  let city = '';
+  for (let i = 0; i < 13; i++) {
+    const bw = 12 + rnd(20, 'w' + i), bx = i * 24 - 6, bh = 34 + rnd(105, 'h' + i);
+    city += `<rect x="${bx}" y="${196 - bh}" width="${bw}" height="${bh}" fill="${bg}" opacity=".92"/>`;
+    city += `<rect x="${bx}" y="${196 - bh}" width="${bw}" height="${bh}" fill="none" stroke="${c1}" stroke-width=".8" opacity=".55"/>`;
+    for (let k = 0; k < 3; k++) {
+      const wy = 196 - bh + 8 + k * 13;
+      if (wy < 190 && rnd(10, 'l' + i + k) > 4)
+        city += `<rect x="${bx + 3}" y="${wy}" width="3" height="4" fill="${c2}" opacity=".8"/>`;
+    }
+  }
+
+  // glitch pruhy
+  let glitch = '';
+  for (let i = 0; i < 3; i++) {
+    const gy = rnd(260, 'g' + i) + 12;
+    glitch += `<rect x="0" y="${gy}" width="${W}" height="${1 + rnd(3, 'gh' + i)}" fill="${i % 2 ? c1 : c2}" opacity=".5"/>`;
+  }
+
+  // nazev zalomeny na radky
+  const words = title.toUpperCase().split(/\s+/);
+  const lines = []; let cl = '';
+  for (const w of words) {
+    if ((cl + ' ' + w).trim().length > 13) { if (cl) lines.push(cl); cl = w; } else cl = (cl + ' ' + w).trim();
+  }
+  if (cl) lines.push(cl);
+  const show = lines.slice(0, 4);
+  const fs = show.length > 3 ? 20 : show.length > 2 ? 23 : 26;
+  const startY = 250 - show.length * fs * 1.06;
+  const text = show.map((l, i) =>
+    `<text x="16" y="${startY + i * fs * 1.06}" font-family="SF Mono,Menlo,monospace" font-size="${fs}"
+      font-weight="700" fill="#fff" letter-spacing="-.5">${esc(l)}</text>`).join('');
+
+  const surname = (author.split(',')[0] || '').toUpperCase();
+
+  return `<svg viewBox="0 0 ${W} ${W}" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice">
+    <defs>
+      <linearGradient id="g${h}" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="${c1}" stop-opacity=".85"/>
+        <stop offset=".55" stop-color="${bg}"/>
+        <stop offset="1" stop-color="${c2}" stop-opacity=".55"/>
+      </linearGradient>
+      <linearGradient id="f${h}" x1="0" y1="0" x2="0" y2="1">
+        <stop offset=".4" stop-color="#000" stop-opacity="0"/>
+        <stop offset="1" stop-color="#000" stop-opacity=".82"/>
+      </linearGradient>
+    </defs>
+    <rect width="${W}" height="${W}" fill="url(#g${h})"/>
+    <circle cx="${60 + rnd(180, 'sun')}" cy="150" r="46" fill="${c1}" opacity=".5"/>
+    ${city}${grid}
+    <rect width="${W}" height="${W}" fill="url(#f${h})"/>
+    ${glitch}
+    ${surname ? `<text x="16" y="34" font-family="SF Mono,Menlo,monospace" font-size="11"
+      font-weight="600" fill="${c2}" letter-spacing="3">${esc(surname)}</text>` : ''}
+    ${text}
+    <rect x="16" y="262" width="46" height="2" fill="${c1}"/>
+  </svg>`;
+}
+
+/* ---------- prehravac ---------- */
+let cur = null;
 async function playTrack(idx, seekTo) {
   if (!cur || idx < 0 || idx >= cur.tracks.length) return;
   cur.idx = idx;
   const t = cur.tracks[idx];
-  el('plNow').innerHTML = '<b>' + t.name.replace(/\.[^.]+$/, '') + '</b> — ' + splitName(cur.book).title;
+  el('plNow').innerHTML = '<b>' + esc(t.name.replace(/\.[^.]+$/, '')) + '</b> · ' + esc(splitName(cur.book).title);
   pl.classList.add('on');
   try {
     au.src = await fileLink(t.ident);
-    if (seekTo) au.currentTime = seekTo;
+    if (seekTo) {
+      const once = () => { au.currentTime = seekTo; au.removeEventListener('loadedmetadata', once); };
+      au.addEventListener('loadedmetadata', once);
+    }
     await au.play();
   } catch (e) {
     el('plNow').textContent = 'Nepodařilo se spustit: ' + e.message;
     return;
   }
-  if (seekTo) {
-    const once = () => { au.currentTime = seekTo; au.removeEventListener('loadedmetadata', once); };
-    au.addEventListener('loadedmetadata', once);
-  }
   save();
-  if (cur.render) cur.render();
+  cur.render && cur.render();
 }
 function save() {
   if (cur) pos.set(cur.book, { idx: cur.idx, time: au.currentTime || 0, n: cur.tracks.length });
@@ -223,10 +422,10 @@ au.addEventListener('timeupdate', () => {
   el('tCur').textContent = fmt(au.currentTime);
   el('tTot').textContent = fmt(au.duration);
   if (au.duration) el('seek').value = String(au.currentTime / au.duration * 1000);
-  if (Math.floor(au.currentTime) % 5 === 0) save();
+  if (~~au.currentTime % 5 === 0) save();
 });
 au.addEventListener('ended', () => playTrack(cur.idx + 1));
-au.addEventListener('play', () => el('bPlay').textContent = '⏸');
+au.addEventListener('play', () => el('bPlay').textContent = '❚❚');
 au.addEventListener('pause', () => { el('bPlay').textContent = '▶'; save(); });
 el('bPlay').onclick = () => au.paused ? au.play() : au.pause();
 el('bNext').onclick = () => playTrack(cur.idx + 1);
@@ -236,22 +435,27 @@ el('bBack').onclick = () => au.currentTime -= 30;
 el('seek').oninput = e => { if (au.duration) au.currentTime = au.duration * e.target.value / 1000; };
 const RATES = [1, 1.25, 1.5, 1.75, 2, 0.75];
 let ri = 0;
-el('bRate').onclick = () => { ri = (ri + 1) % RATES.length; au.playbackRate = RATES[ri]; el('bRate').textContent = RATES[ri] + '×'; };
+el('bRate').onclick = () => {
+  ri = (ri + 1) % RATES.length; au.playbackRate = RATES[ri];
+  el('bRate').textContent = RATES[ri] + '×';
+};
 
 /* ---------- obrazovky ---------- */
+const CHUT = ['křupavý', 'šťavnatý', 'nadýchaný', 'uleželý', 'čerstvě mletý', 'vypečený',
+  'marinovaný', 'poctivý', 'domácí', 'pikantní', 'medový', 'karamelový', 'voňavý',
+  'zlatavý', 'huňatý', 'uzený', 'nakládaný', 'grilovaný', 'křehoučký', 'svěží',
+  'chlupatý', 'rozpustilý', 'famózní', 'božský', 'luxusní', 'prvotřídní',
+  'vypasený', 'kandovaný', 'sametový', 'lahodný'];
+
 function screenLogin(msg) {
   app.innerHTML = `<div class="login">
-    <h2>Audioknihovna</h2>
-    <p>Přístup k soukromému archivu na Webshare.</p>
-    ${msg ? `<div class="err">${msg}</div>` : ''}
-    <input id="tok" placeholder="Přihlašovací token (wst)" autocomplete="off"
-      autocapitalize="off" spellcheck="false">
-    <button class="btn btn-acc" id="go" style="width:100%">Vstoupit</button>
-    <details><summary>Kde token vezmu?</summary><ol>
-      <li>Na počítači se přihlas na <code>webshare.cz</code></li>
-      <li>Otevři vývojářské nástroje (F12) → záložka <code>Application</code> → <code>Cookies</code></li>
-      <li>Zkopíruj hodnotu cookie <code>wst</code></li>
-    </ol><p>Token se uloží jen do tohoto zařízení a nikam se neodesílá.</p></details>
+    <div class="kick">Webshare · soukromý archiv</div>
+    <h2>Audio<br>knihovna</h2>
+    <p>Připoj se ke svému archivu audioknih.</p>
+    ${msg ? `<div class="err">${esc(msg)}</div>` : ''}
+    <input id="tok" placeholder="Mám chuť na ${CHUT[~~(Math.random() * CHUT.length)]} token"
+      autocomplete="off" autocapitalize="off" spellcheck="false">
+    <button class="btn btn-acc" id="go" style="width:100%;padding:13px">Připojit</button>
   </div>`;
   const go = () => {
     const v = el('tok').value.trim();
@@ -264,34 +468,34 @@ function screenLogin(msg) {
 
 async function screenLibrary() {
   app.innerHTML = `<header><h1>Audioknihovna</h1>
-    <button class="btn" id="out">Odhlásit</button></header>
+    <button class="btn" id="out">Odpojit</button></header>
     <main><div class="empty">Načítám…</div></main>`;
-  el('out').onclick = () => { localStorage.removeItem('wst'); WST = ''; au.pause(); pl.classList.remove('on'); screenLogin(); };
+  el('out').onclick = () => {
+    localStorage.removeItem('wst'); WST = '';
+    au.pause(); pl.classList.remove('on'); screenLogin();
+  };
   let books;
-  try {
-    books = (await listDir(ROOT)).filter(x => x.kind === 'folder');
-  } catch (e) {
-    return screenLogin('Přihlášení selhalo: ' + e.message);
-  }
-  if (!books.length) return app.querySelector('main').innerHTML = '<div class="empty">Knihovna je prázdná.</div>';
+  try { books = (await listDir(ROOT)).filter(x => x.kind === 'folder'); }
+  catch (e) { return screenLogin('Připojení selhalo: ' + e.message); }
+  if (!books.length)
+    return app.querySelector('main').innerHTML = '<div class="empty">Knihovna je prázdná</div>';
 
-  const cards = books.map(b => {
+  app.querySelector('main').innerHTML = '<div class="grid">' + books.map(b => {
     const { author, title } = splitName(b.name);
     const p = pos.get(b.name);
     const prog = p && p.n ? Math.round((p.idx + 1) / p.n * 100) : 0;
-    return `<button class="card" data-n="${encodeURIComponent(b.name)}">
-      <div class="cov" data-cov="${encodeURIComponent(b.name)}">🎧</div>
+    return `<button class="card" data-n="${esc(b.name)}">
+      <div class="cov ph" data-cov="${esc(b.name)}">${artHTML(b.name)}</div>
       <div class="meta">
-        ${author ? `<div class="au">${author}</div>` : ''}
-        <div class="ti">${title}</div>
-        ${prog ? `<div class="sub">rozposloucháno ${prog} %</div><div class="bar"><i style="width:${prog}%"></i></div>` : ''}
+        ${author ? `<div class="au">${esc(author)}</div>` : ''}
+        <div class="ti">${esc(title)}</div>
+        ${prog ? `<div class="sub">${prog} % · stopa ${p.idx + 1}/${p.n}</div>
+                  <div class="bar"><i style="width:${prog}%"></i></div>` : ''}
       </div></button>`;
-  }).join('');
-  app.querySelector('main').innerHTML = `<div class="grid">${cards}</div>`;
-  app.querySelectorAll('.card').forEach(c =>
-    c.onclick = () => screenBook(decodeURIComponent(c.dataset.n)));
+  }).join('') + '</div>';
+  app.querySelectorAll('.card').forEach(c => c.onclick = () => screenBook(c.dataset.n));
 
-  // obálky po třech, ať se na mobilu nezahltí spojení a stránka zůstane svižná
+  // skutecne obalky po trech, ať se spojení nezahltí
   (async () => {
     const q = books.slice();
     const worker = async () => { while (q.length) await loadCover(q.shift().name); };
@@ -300,23 +504,27 @@ async function screenLibrary() {
 }
 
 async function loadCover(book) {
-  const box = document.querySelector(`[data-cov="${CSS.escape(encodeURIComponent(book))}"]`);
-  if (!box) return;
   try {
+    if (coverCache[book] === false) return;
     if (!coverCache[book]) {
       const f = (await listDir(ROOT + '/' + book))
-        .find(x => /^cover\.(jpg|jpeg|png)$/i.test(x.name));
-      if (!f) return;
+        .find(x => /^cover\.(jpg|jpeg|png|webp)$/i.test(x.name));
+      if (!f) { coverCache[book] = false; return; }
       coverCache[book] = await fileLink(f.ident);
     }
-    box.innerHTML = `<img src="${coverCache[book]}" alt="">`;
+    // skutečná obálka z archivu má přednost a jde bez přebarvení
+    document.querySelectorAll('[data-cov]').forEach(box => {
+      if (box.dataset.cov !== book) return;
+      box.classList.remove('ph');
+      box.innerHTML = `<img src="${coverCache[book]}" alt="">`;
+    });
   } catch { /* obálka je bonus, ne nutnost */ }
 }
 
 async function screenBook(book) {
   const { author, title } = splitName(book);
-  app.innerHTML = `<header><button class="btn" id="back">‹</button><h1>${title}</h1></header>
-    <main><div class="empty">Načítám…</div></main>`;
+  app.innerHTML = `<header><button class="btn" id="back">‹ Zpět</button>
+    <h1>${esc(title)}</h1></header><main><div class="empty">Načítám…</div></main>`;
   el('back').onclick = screenLibrary;
 
   let files;
@@ -325,35 +533,38 @@ async function screenBook(book) {
       .filter(x => x.kind === 'file' && /\.(mp3|m4a|m4b|wav|ogg|opus)$/i.test(x.name))
       .sort((a, b2) => a.name.localeCompare(b2.name, 'cs', { numeric: true }));
   } catch (e) {
-    return app.querySelector('main').innerHTML = `<div class="err">${e.message}</div>`;
+    return app.querySelector('main').innerHTML = `<div class="err">${esc(e.message)}</div>`;
   }
-  if (!files.length) return app.querySelector('main').innerHTML = '<div class="empty">Žádné zvukové soubory.</div>';
+  if (!files.length)
+    return app.querySelector('main').innerHTML = '<div class="empty">Žádné zvukové soubory</div>';
 
   const p = pos.get(book);
   cur = { book, tracks: files, idx: p ? p.idx : 0, render: null };
+  const real = !!coverCache[book];
+  const art = real ? `<img src="${coverCache[book]}" alt="">` : artHTML(book);
 
   const draw = () => {
-    const rows = files.map((f, i) => `<button class="tr ${i === cur.idx ? 'on' : ''} ${p && i < (p.idx || 0) ? 'done' : ''}" data-i="${i}">
-        <span class="n">${i + 1}</span>
-        <span class="t">${f.name.replace(/\.[^.]+$/, '')}</span>
-        <span class="d">${(f.size / 1048576).toFixed(0)} MB</span></button>`).join('');
     app.querySelector('main').innerHTML = `
       <div class="head">
-        <div class="cov" style="border-radius:12px">${coverCache[book] ? `<img src="${coverCache[book]}" alt="">` : '🎧'}</div>
-        <div><h2>${title}</h2>${author ? `<div class="a">${author}</div>` : ''}
-        <div class="sub">${files.length} stop</div>
-        <button class="btn btn-acc" id="res" style="margin-top:10px">
-          ${p ? 'Pokračovat' : 'Přehrát'}</button></div>
-      </div>${rows}`;
+        <div class="cov${real ? '' : ' ph'}">${art}</div>
+        <div><h2>${esc(title)}</h2>
+          ${author ? `<div class="a">${esc(author)}</div>` : ''}
+          <div class="sub">${files.length} stop</div>
+          <button class="btn btn-acc" id="res" style="margin-top:11px">
+            ${p ? 'Pokračovat' : 'Přehrát'}</button></div>
+      </div>` + files.map((f, i) =>
+        `<button class="tr ${i === cur.idx ? 'on' : ''} ${p && i < p.idx ? 'done' : ''}" data-i="${i}">
+          <span class="n">${String(i + 1).padStart(2, '0')}</span>
+          <span class="t">${esc(f.name.replace(/\.[^.]+$/, ''))}</span>
+          <span class="d">${(f.size / 1048576).toFixed(0)} MB</span></button>`).join('');
     el('res').onclick = () => playTrack(cur.idx, p && p.idx === cur.idx ? p.time : 0);
     app.querySelectorAll('.tr').forEach(r => r.onclick = () => playTrack(+r.dataset.i, 0));
   };
   cur.render = draw;
   draw();
-  if (!coverCache[book]) { await loadCover(book); draw(); }
+  if (coverCache[book] === undefined) { await loadCover(book); draw(); }
 }
 
-/* ---------- start ---------- */
 window.addEventListener('beforeunload', save);
 WST ? screenLibrary() : screenLogin();
 </script>
