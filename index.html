@@ -211,6 +211,79 @@ const au = document.getElementById('au');
 const pl = document.getElementById('pl');
 const el = id => document.getElementById(id);
 
+/* ---------- šifrování pro přihlášení ----------
+   Webshare: sha1(md5crypt(heslo, sůl)) + md5 digest.
+   Ověřeno proti `openssl passwd -1`.                                  */
+function md5bytes(input) {
+  const S = [7,12,17,22,7,12,17,22,7,12,17,22,7,12,17,22,
+             5,9,14,20,5,9,14,20,5,9,14,20,5,9,14,20,
+             4,11,16,23,4,11,16,23,4,11,16,23,4,11,16,23,
+             6,10,15,21,6,10,15,21,6,10,15,21,6,10,15,21];
+  const K = new Int32Array(64);
+  for (let i = 0; i < 64; i++) K[i] = (Math.abs(Math.sin(i + 1)) * 4294967296) | 0;
+  const len = input.length;
+  const padded = new Uint8Array(Math.ceil((len + 9) / 64) * 64);
+  padded.set(input); padded[len] = 0x80;
+  const dv = new DataView(padded.buffer), bitLen = len * 8;
+  dv.setUint32(padded.length - 8, bitLen >>> 0, true);
+  dv.setUint32(padded.length - 4, Math.floor(bitLen / 4294967296), true);
+  let a0 = 0x67452301, b0 = 0xefcdab89, c0 = 0x98badcfe, d0 = 0x10325476;
+  const M = new Int32Array(16);
+  for (let off = 0; off < padded.length; off += 64) {
+    for (let j = 0; j < 16; j++) M[j] = dv.getUint32(off + j * 4, true);
+    let A = a0, B = b0, C = c0, D = d0;
+    for (let i = 0; i < 64; i++) {
+      let F, g;
+      if (i < 16)      { F = (B & C) | (~B & D);  g = i; }
+      else if (i < 32) { F = (D & B) | (~D & C);  g = (5 * i + 1) % 16; }
+      else if (i < 48) { F = B ^ C ^ D;           g = (3 * i + 5) % 16; }
+      else             { F = C ^ (B | ~D);        g = (7 * i) % 16; }
+      F = (F + A + K[i] + M[g]) | 0;
+      A = D; D = C; C = B;
+      B = (B + ((F << S[i]) | (F >>> (32 - S[i])))) | 0;
+    }
+    a0 = (a0 + A) | 0; b0 = (b0 + B) | 0; c0 = (c0 + C) | 0; d0 = (d0 + D) | 0;
+  }
+  const out = new Uint8Array(16), odv = new DataView(out.buffer);
+  odv.setInt32(0, a0, true); odv.setInt32(4, b0, true);
+  odv.setInt32(8, c0, true); odv.setInt32(12, d0, true);
+  return out;
+}
+const ENC = new TextEncoder();
+const catBytes = (...a) => {
+  const o = new Uint8Array(a.reduce((s, x) => s + x.length, 0));
+  let p = 0; for (const x of a) { o.set(x, p); p += x.length; } return o;
+};
+const toHex = b => [...b].map(x => x.toString(16).padStart(2, '0')).join('');
+const ITOA64 = './0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+function md5crypt(password, salt) {
+  const pw = ENC.encode(password), sa = ENC.encode(salt);
+  let final = md5bytes(catBytes(pw, sa, pw));
+  const parts = [pw, ENC.encode('$1$'), sa];
+  for (let pl = pw.length; pl > 0; pl -= 16) parts.push(final.subarray(0, Math.min(pl, 16)));
+  const zero = new Uint8Array([0]);
+  for (let i = pw.length; i; i >>= 1) parts.push(i & 1 ? zero : pw.subarray(0, 1));
+  final = md5bytes(catBytes(...parts));
+  for (let r = 0; r < 1000; r++) {
+    const p = [r & 1 ? pw : final];
+    if (r % 3) p.push(sa);
+    if (r % 7) p.push(pw);
+    p.push(r & 1 ? final : pw);
+    final = md5bytes(catBytes(...p));
+  }
+  let out = '';
+  const to64 = (v, n) => { for (let k = 0; k < n; k++) { out += ITOA64[v & 0x3f]; v >>= 6; } };
+  to64((final[0] << 16) | (final[6] << 8) | final[12], 4);
+  to64((final[1] << 16) | (final[7] << 8) | final[13], 4);
+  to64((final[2] << 16) | (final[8] << 8) | final[14], 4);
+  to64((final[3] << 16) | (final[9] << 8) | final[15], 4);
+  to64((final[4] << 16) | (final[10] << 8) | final[5], 4);
+  to64(final[11], 2);
+  return '$1$' + salt + '$' + out;
+}
+const md5hex = s => toHex(md5bytes(ENC.encode(s)));
+const sha1hex = async s => toHex(new Uint8Array(await crypto.subtle.digest('SHA-1', ENC.encode(s))));
+
 /* ---------- API ---------- */
 async function api(ep, params) {
   const r = await fetch(API + ep + '/', {
@@ -447,25 +520,58 @@ const CHUT = ['křupavý', 'šťavnatý', 'nadýchaný', 'uleželý', 'čerstvě
   'chlupatý', 'rozpustilý', 'famózní', 'božský', 'luxusní', 'prvotřídní',
   'vypasený', 'kandovaný', 'sametový', 'lahodný'];
 
+async function login(user, pass) {
+  const salt = (await api('salt', { username_or_email: user })).querySelector('salt')?.textContent || '';
+  const ph = await sha1hex(md5crypt(pass, salt));
+  const doc = await api('login', {
+    username_or_email: user, password: ph,
+    digest: md5hex(user + ':Webshare:' + ph), keep_logged_in: '1'
+  });
+  const t = doc.querySelector('token')?.textContent;
+  if (!t) throw new Error('server nevrátil klíč');
+  return t;
+}
+
+/* mobilní klávesnice ráda přidá mezeru, nezlomitelnou nebo nulovou mezeru */
+const ocisti = s => s.replace(/[\s ​⁠]/g, '');
+
 function screenLogin(msg) {
   app.innerHTML = `<div class="login">
     <div class="kick">Webshare · soukromý archiv</div>
     <h2>Audio<br>knihovna</h2>
     <p>Připoj se ke svému archivu audioknih.</p>
     ${msg ? `<div class="err">${esc(msg)}</div>` : ''}
-    <input id="tok" placeholder="Mám chuť na ${CHUT[~~(Math.random() * CHUT.length)]} token"
-      autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false"
-      inputmode="text">
+    <input id="usr" placeholder="jméno nebo e-mail" autocomplete="username"
+      autocapitalize="none" autocorrect="off" spellcheck="false">
+    <input id="pwd" type="password" placeholder="heslo" autocomplete="current-password">
     <button class="btn btn-acc" id="go" style="width:100%;padding:13px">Připojit</button>
+    <div style="margin-top:17px">
+      <button id="alt" style="font:600 11px/1 var(--mono);letter-spacing:.12em;
+        text-transform:uppercase;color:var(--cyan)">Mám rovnou klíč ›</button>
+    </div>
+    <div id="tokBox" style="display:none;margin-top:13px">
+      <input id="tok" placeholder="Mám chuť na ${CHUT[~~(Math.random() * CHUT.length)]} token"
+        autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false">
+      <button class="btn" id="goTok" style="width:100%">Použít klíč</button>
+    </div>
   </div>`;
-  const go = () => {
-    // mobilní klávesnice ráda přidá mezeru nebo nezlomitelnou mezeru — pryč s nimi
-    const v = el('tok').value.replace(/[\s ​]/g, '');
-    if (!v) return;
-    WST = v; localStorage.setItem('wst', v); screenLibrary();
+
+  const enter = t => { WST = t; localStorage.setItem('wst', t); screenLibrary(); };
+
+  const go = async () => {
+    const u = ocisti(el('usr').value), p = el('pwd').value;
+    if (!u || !p) return;
+    el('go').textContent = 'Připojuji…'; el('go').disabled = true;
+    try { enter(await login(u, p)); }
+    catch (e) { screenLogin('Přihlášení selhalo: ' + e.message); }
   };
   el('go').onclick = go;
-  el('tok').onkeydown = e => { if (e.key === 'Enter') go(); };
+  el('pwd').onkeydown = e => { if (e.key === 'Enter') go(); };
+  el('alt').onclick = () => {
+    const b = el('tokBox');
+    b.style.display = b.style.display === 'none' ? 'block' : 'none';
+  };
+  el('goTok').onclick = () => { const v = ocisti(el('tok').value); if (v) enter(v); };
 }
 
 async function screenLibrary() {
