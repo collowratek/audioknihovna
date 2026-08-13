@@ -454,11 +454,13 @@ function screenLogin(msg) {
     <p>Připoj se ke svému archivu audioknih.</p>
     ${msg ? `<div class="err">${esc(msg)}</div>` : ''}
     <input id="tok" placeholder="Mám chuť na ${CHUT[~~(Math.random() * CHUT.length)]} token"
-      autocomplete="off" autocapitalize="off" spellcheck="false">
+      autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false"
+      inputmode="text">
     <button class="btn btn-acc" id="go" style="width:100%;padding:13px">Připojit</button>
   </div>`;
   const go = () => {
-    const v = el('tok').value.trim();
+    // mobilní klávesnice ráda přidá mezeru nebo nezlomitelnou mezeru — pryč s nimi
+    const v = el('tok').value.replace(/[\s ​]/g, '');
     if (!v) return;
     WST = v; localStorage.setItem('wst', v); screenLibrary();
   };
@@ -566,7 +568,18 @@ async function screenBook(book) {
 }
 
 window.addEventListener('beforeunload', save);
-WST ? screenLibrary() : screenLogin();
+
+/* Token lze předat v adrese (#t=…) — na telefonu se nic nepřepisuje.
+   Hned ho z adresního řádku odstraníme, ať tam nezůstane viset.       */
+(() => {
+  const m = location.hash.match(/[#&]t=([^&]+)/);
+  if (m) {
+    WST = decodeURIComponent(m[1]).replace(/[\s ​]/g, '');
+    localStorage.setItem('wst', WST);
+    history.replaceState(null, '', location.pathname + location.search);
+  }
+  WST ? screenLibrary() : screenLogin();
+})();
 </script>
 </body>
 </html>
