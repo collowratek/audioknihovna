@@ -493,12 +493,14 @@ function coverSVG(book) {
 }
 
 /* ---------- prehravac ---------- */
-let cur = null;
+let cur = null;    // právě zobrazená kniha
+let hraje = null;  // kniha, která opravdu hraje
 async function playTrack(idx, seekTo) {
   if (!cur || idx < 0 || idx >= cur.tracks.length) return;
-  cur.idx = idx;
-  const t = cur.tracks[idx];
-  el('plNow').innerHTML = '<b>' + esc(t.name.replace(/\.[^.]+$/, '')) + '</b> · ' + esc(splitName(cur.book).title);
+  hraje = cur;                    // od teď se pozice ukládá pod tuhle knihu
+  hraje.idx = idx;
+  const t = hraje.tracks[idx];
+  el('plNow').innerHTML = '<b>' + esc(t.name.replace(/\.[^.]+$/, '')) + '</b> · ' + esc(splitName(hraje.book).title);
   pl.classList.add('on'); document.body.classList.add('hraje'); zmerPrehravac();
   try {
     au.src = await fileLink(t.ident);
@@ -512,10 +514,10 @@ async function playTrack(idx, seekTo) {
     return;
   }
   save();
-  cur.render && cur.render();
+  hraje.render && hraje.render();
 }
 function save() {
-  if (cur) pos.set(cur.book, { idx: cur.idx, time: au.currentTime || 0, n: cur.tracks.length });
+  if (hraje) pos.set(hraje.book, { idx: hraje.idx, time: au.currentTime || 0, n: hraje.tracks.length });
 }
 au.addEventListener('timeupdate', () => {
   el('tCur').textContent = fmt(au.currentTime);
@@ -525,7 +527,7 @@ au.addEventListener('timeupdate', () => {
 });
 au.addEventListener('ended', () => {
   if (doKonceStopy) { doKonceStopy = false; spanekVolba = 0; ukazSpanek(); return; }
-  playTrack(cur.idx + 1);
+  playTrack(hraje.idx + 1);
 });
 au.addEventListener('play', () => el('bPlay').textContent = '❚❚');
 au.addEventListener('pause', () => { el('bPlay').textContent = '▶'; save(); });
@@ -541,8 +543,8 @@ el('sbal').onclick = () => {
   zmerPrehravac();
 };
 el('bPlay').onclick = () => au.paused ? au.play() : au.pause();
-el('bNext').onclick = () => playTrack(cur.idx + 1);
-el('bPrev').onclick = () => au.currentTime > 3 ? (au.currentTime = 0) : playTrack(cur.idx - 1);
+el('bNext').onclick = () => playTrack(hraje.idx + 1);
+el('bPrev').onclick = () => au.currentTime > 3 ? (au.currentTime = 0) : playTrack(hraje.idx - 1);
 const KROKY = [10, 15, 30, 60, 90];
 let krok = +(localStorage.getItem('krok') || 30);
 function ukazKrok() {
@@ -675,7 +677,7 @@ async function screenLibrary() {
         ${novinka ? '<div class="au" style="color:var(--acid)">★ novinka</div>' : ''}
         ${author ? `<div class="au">${esc(author)}</div>` : ''}
         <div class="ti">${esc(title)}</div>
-        ${prog ? `<div class="sub">${prog} % · stopa ${p.idx + 1}/${p.n}</div>
+        ${prog ? `<div class="sub">stopa ${p.idx + 1}/${p.n} · ${fmt(p.time)}</div>
                   <div class="bar"><i style="width:${prog}%"></i></div>` : ''}
       </div></button>`;
   }).join('') + '</div>';
@@ -737,12 +739,13 @@ async function screenBook(book) {
           ${author ? `<div class="a">${esc(author)}</div>` : ''}
           <div class="sub">${files.length} stop</div>
           <button class="btn btn-acc" id="res" style="margin-top:11px">
-            ${p ? 'Pokračovat' : 'Přehrát'}</button></div>
+            ${p ? `Pokračovat ${p.idx + 1}. · ${fmt(p.time)}` : 'Přehrát'}</button></div>
       </div>` + files.map((f, i) =>
         `<button class="tr ${i === cur.idx ? 'on' : ''} ${p && i < p.idx ? 'done' : ''}" data-i="${i}">
           <span class="n">${String(i + 1).padStart(2, '0')}</span>
           <span class="t">${esc(f.name.replace(/\.[^.]+$/, ''))}</span>
-          <span class="d">${(f.size / 1048576).toFixed(0)} MB</span></button>`).join('');
+          <span class="d">${p && p.idx === i ? fmt(p.time) : (f.size / 1048576).toFixed(0) + ' MB'}</span>
+          </button>`).join('');
     el('res').onclick = () => playTrack(cur.idx, p && p.idx === cur.idx ? p.time : 0);
     app.querySelectorAll('.tr').forEach(r => r.onclick = () => playTrack(+r.dataset.i, 0));
   };
