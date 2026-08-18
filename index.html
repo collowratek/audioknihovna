@@ -145,6 +145,14 @@
   .tr.done .t{color:var(--dim)}
 
   /* prehravac */
+  /* obsah se odsadí o výšku přehrávače, aby na konec seznamu šlo dosáhnout */
+  body.hraje #app{padding-bottom:calc(var(--pl-h,150px) + 12px)}
+  .pl .sbal{position:absolute;top:6px;right:12px;padding:6px 10px;font-size:13px;
+    color:var(--dim);line-height:1}
+  .pl.mini .seek,.pl.mini .times,.pl.mini .ctl .btn{display:none}
+  .pl.mini .ctl{justify-content:flex-start}
+  .pl.mini .play{width:40px;height:40px;border-radius:20px;font-size:15px}
+  .pl.mini .now{margin-bottom:6px}
   .pl{
     position:fixed;left:0;right:0;bottom:0;z-index:30;
     background:linear-gradient(180deg,rgba(19,12,40,.97),rgba(9,5,20,.99));
@@ -178,6 +186,7 @@
 <div id="app"></div>
 
 <div class="pl" id="pl">
+  <button class="sbal" id="sbal">▼</button>
   <div class="now" id="plNow"></div>
   <input type="range" class="seek" id="seek" min="0" max="1000" value="0">
   <div class="times"><span id="tCur">0:00</span><span id="tTot">0:00</span></div>
@@ -481,7 +490,7 @@ async function playTrack(idx, seekTo) {
   cur.idx = idx;
   const t = cur.tracks[idx];
   el('plNow').innerHTML = '<b>' + esc(t.name.replace(/\.[^.]+$/, '')) + '</b> · ' + esc(splitName(cur.book).title);
-  pl.classList.add('on');
+  pl.classList.add('on'); document.body.classList.add('hraje'); zmerPrehravac();
   try {
     au.src = await fileLink(t.ident);
     if (seekTo) {
@@ -508,6 +517,17 @@ au.addEventListener('timeupdate', () => {
 au.addEventListener('ended', () => playTrack(cur.idx + 1));
 au.addEventListener('play', () => el('bPlay').textContent = '❚❚');
 au.addEventListener('pause', () => { el('bPlay').textContent = '▶'; save(); });
+function zmerPrehravac() {
+  document.documentElement.style.setProperty('--pl-h', pl.offsetHeight + 'px');
+}
+new ResizeObserver(zmerPrehravac).observe(pl);
+window.addEventListener('orientationchange', () => setTimeout(zmerPrehravac, 300));
+
+el('sbal').onclick = () => {
+  pl.classList.toggle('mini');
+  el('sbal').textContent = pl.classList.contains('mini') ? '▲' : '▼';
+  zmerPrehravac();
+};
 el('bPlay').onclick = () => au.paused ? au.play() : au.pause();
 el('bNext').onclick = () => playTrack(cur.idx + 1);
 el('bPrev').onclick = () => au.currentTime > 3 ? (au.currentTime = 0) : playTrack(cur.idx - 1);
@@ -588,7 +608,7 @@ async function screenLibrary() {
     <main><div class="empty">Načítám…</div></main>`;
   el('out').onclick = () => {
     localStorage.removeItem('wst'); WST = '';
-    au.pause(); pl.classList.remove('on'); screenLogin();
+    au.pause(); pl.classList.remove('on'); document.body.classList.remove('hraje'); screenLogin();
   };
   let books;
   try { books = (await listDir(ROOT)).filter(x => x.kind === 'folder').sort(poradi); }
