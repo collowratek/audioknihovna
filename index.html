@@ -175,6 +175,11 @@
     display:flex;align-items:center;justify-content:center;
     box-shadow:0 0 26px rgba(255,45,149,.5);
   }
+  .ctl2{display:flex;justify-content:center;gap:10px;margin-top:9px}
+  .ctl2 button{font:600 10.5px/1 var(--mono);letter-spacing:.09em;text-transform:uppercase;
+    color:var(--dim);padding:6px 10px;border:1px solid var(--line);border-radius:3px}
+  .ctl2 button.aktivni{color:var(--acid);border-color:var(--acid)}
+  .pl.mini .ctl2{display:none}
   .empty{color:var(--dim);text-align:center;padding:44px 0;font:12px var(--mono);
     letter-spacing:.1em;text-transform:uppercase}
   .err{background:rgba(90,10,40,.6);border:1px solid var(--mag);color:#ffc2df;
@@ -197,6 +202,10 @@
     <button class="play" id="bPlay">▶</button>
     <button class="btn" id="bFwd">+30</button>
     <button class="btn" id="bNext">⏭</button>
+  </div>
+  <div class="ctl2">
+    <button id="bKrok">krok 30 s</button>
+    <button id="bSpanek">časovač vyp</button>
   </div>
 </div>
 
@@ -514,7 +523,10 @@ au.addEventListener('timeupdate', () => {
   if (au.duration) el('seek').value = String(au.currentTime / au.duration * 1000);
   if (~~au.currentTime % 5 === 0) save();
 });
-au.addEventListener('ended', () => playTrack(cur.idx + 1));
+au.addEventListener('ended', () => {
+  if (doKonceStopy) { doKonceStopy = false; spanekVolba = 0; ukazSpanek(); return; }
+  playTrack(cur.idx + 1);
+});
 au.addEventListener('play', () => el('bPlay').textContent = '❚❚');
 au.addEventListener('pause', () => { el('bPlay').textContent = '▶'; save(); });
 function zmerPrehravac() {
@@ -531,8 +543,44 @@ el('sbal').onclick = () => {
 el('bPlay').onclick = () => au.paused ? au.play() : au.pause();
 el('bNext').onclick = () => playTrack(cur.idx + 1);
 el('bPrev').onclick = () => au.currentTime > 3 ? (au.currentTime = 0) : playTrack(cur.idx - 1);
-el('bFwd').onclick = () => au.currentTime += 30;
-el('bBack').onclick = () => au.currentTime -= 30;
+const KROKY = [10, 15, 30, 60, 90];
+let krok = +(localStorage.getItem('krok') || 30);
+function ukazKrok() {
+  el('bFwd').textContent = '+' + krok;
+  el('bBack').textContent = '−' + krok;
+  el('bKrok').textContent = 'krok ' + krok + ' s';
+}
+el('bKrok').onclick = () => {
+  krok = KROKY[(KROKY.indexOf(krok) + 1) % KROKY.length];
+  localStorage.setItem('krok', krok); ukazKrok(); zmerPrehravac();
+};
+el('bFwd').onclick = () => au.currentTime += krok;
+el('bBack').onclick = () => au.currentTime -= krok;
+
+/* ---------- časovač spánku ---------- */
+const SPANEK = [0, 5, 10, 15, 30, 45, 60, -1];   // minuty, -1 = do konce stopy
+let spanekVolba = 0, spanekDo = 0, doKonceStopy = false;
+function ukazSpanek() {
+  const b = el('bSpanek');
+  if (spanekVolba === 0) { b.textContent = 'časovač vyp'; b.classList.remove('aktivni'); return; }
+  b.classList.add('aktivni');
+  if (doKonceStopy) { b.textContent = 'do konce stopy'; return; }
+  const zbyva = Math.max(0, Math.round((spanekDo - Date.now()) / 1000));
+  b.textContent = `časovač ${Math.floor(zbyva / 60)}:${String(zbyva % 60).padStart(2, '0')}`;
+}
+el('bSpanek').onclick = () => {
+  spanekVolba = SPANEK[(SPANEK.indexOf(spanekVolba) + 1) % SPANEK.length];
+  doKonceStopy = spanekVolba === -1;
+  spanekDo = spanekVolba > 0 ? Date.now() + spanekVolba * 60000 : 0;
+  ukazSpanek(); zmerPrehravac();
+};
+setInterval(() => {
+  if (spanekVolba === 0 || doKonceStopy) return;
+  if (Date.now() >= spanekDo) {
+    au.pause(); spanekVolba = 0; spanekDo = 0;
+  }
+  ukazSpanek();
+}, 1000);
 el('seek').oninput = e => { if (au.duration) au.currentTime = au.duration * e.target.value / 1000; };
 const RATES = [1, 1.25, 1.5, 1.75, 2, 0.75];
 let ri = 0;
@@ -703,6 +751,7 @@ async function screenBook(book) {
   if (coverCache[book] === undefined) { await loadCover(book); draw(); }
 }
 
+ukazKrok(); ukazSpanek();
 window.addEventListener('beforeunload', save);
 
 /* Token lze předat v adrese (#t=…) — na telefonu se nic nepřepisuje.
