@@ -338,6 +338,61 @@ const fileLink = async ident => (await api('file_link', {
   ident, download_type: 'file_download', device_uuid: UUID, force_https: '1'
 })).querySelector('link')?.textContent || '';
 
+
+/* ---------- synchronizace pozic mezi zařízeními ----------
+   Obsah souboru z prohlížeče přečíst nelze (blokuje CORS), ale výpis
+   složky přes API ano. Pozice proto nese samotný název souboru:
+       poz_<otisk knihy>_<stopa>_<sekundy>_<čas zápisu>.txt
+   Zapisuje se nový název a starý se maže. Novější zápis vyhrává.     */
+const SYNC = '/audioknihy-pozice';
+const otisk = k => md5hex(k).slice(0, 10);
+let synchronizuji = false, poslednisync = 0;
+
+async function nactiZeSite() {
+  const mapa = {};
+  for (const f of await listDir(SYNC)) {
+    const m = f.name.match(/^poz_([0-9a-f]{10})_(\d+)_(\d+)_(\d+)\.txt$/);
+    if (!m) continue;
+    const [, h, idx, sek, ts] = m;
+    if (!mapa[h] || +ts > mapa[h].ts) mapa[h] = { idx: +idx, time: +sek, ts: +ts, ident: f.ident };
+    else if (f.ident !== mapa[h].ident) mapa[h].stare = (mapa[h].stare || []).concat(f.ident);
+  }
+  return mapa;
+}
+
+async function sladit(knihy) {
+  try {
+    const site = await nactiZeSite();
+    for (const kniha of knihy) {
+      const s = site[otisk(kniha)];
+      if (!s) continue;
+      const m = pos.get(kniha);
+      if (!m || (s.ts || 0) > (m.ts || 0)) {
+        pos.set(kniha, { idx: s.idx, time: s.time, n: (m && m.n) || 0, ts: s.ts });
+      }
+    }
+  } catch (e) { /* bez sítě se prostě použije místní záznam */ }
+}
+
+async function ulozNaSit(kniha, rec) {
+  if (synchronizuji) return;
+  synchronizuji = true;
+  try {
+    const h = otisk(kniha);
+    const jmeno = `poz_${h}_${rec.idx}_${Math.round(rec.time)}_${Date.now()}.txt`;
+    const fd = new FormData();
+    fd.append('wst', WST); fd.append('private', '1'); fd.append('folder', SYNC);
+    fd.append('file', new Blob(['.'], { type: 'text/plain' }), jmeno);
+    const r = await fetch('https://upload2.wsup.cz/api/upload/index.php', { method: 'POST', body: fd });
+    if (!(await r.text()).includes('"ident"')) return;
+    for (const f of await listDir(SYNC)) {          // uklidit starší zápisy téže knihy
+      if (f.name.startsWith('poz_' + h + '_') && f.name !== jmeno)
+        await api('remove_file', { ident: f.ident }).catch(() => {});
+    }
+  } catch (e) { /* neúspěch nevadí, místní záznam zůstává */ }
+  finally { synchronizuji = false; }
+}
+
 /* ---------- pomocne ---------- */
 const pos = {
   get(b) { try { return JSON.parse(localStorage.getItem('pos:' + b)); } catch { return null; } },
@@ -516,8 +571,14 @@ async function playTrack(idx, seekTo) {
   save();
   hraje.render && hraje.render();
 }
-function save() {
-  if (hraje) pos.set(hraje.book, { idx: hraje.idx, time: au.currentTime || 0, n: hraje.tracks.length });
+function save(hned) {
+  if (!hraje) return;
+  const rec = { idx: hraje.idx, time: au.currentTime || 0, n: hraje.tracks.length, ts: Date.now() };
+  pos.set(hraje.book, rec);
+  if (hned || Date.now() - poslednisync > 60000) {
+    poslednisync = Date.now();
+    ulozNaSit(hraje.book, rec);
+  }
 }
 au.addEventListener('timeupdate', () => {
   el('tCur').textContent = fmt(au.currentTime);
@@ -530,7 +591,7 @@ au.addEventListener('ended', () => {
   playTrack(hraje.idx + 1);
 });
 au.addEventListener('play', () => el('bPlay').textContent = '❚❚');
-au.addEventListener('pause', () => { el('bPlay').textContent = '▶'; save(); });
+au.addEventListener('pause', () => { el('bPlay').textContent = '▶'; save(true); });
 function zmerPrehravac() {
   document.documentElement.style.setProperty('--pl-h', pl.offsetHeight + 'px');
 }
@@ -665,6 +726,8 @@ async function screenLibrary() {
   catch (e) { return screenLogin('Připojení selhalo: ' + e.message); }
   if (!books.length)
     return app.querySelector('main').innerHTML = '<div class="empty">Knihovna je prázdná</div>';
+
+  await sladit(books.map(b => b.name));
 
   app.querySelector('main').innerHTML = '<div class="grid">' + books.map(b => {
     const { author, title } = splitName(b.name);
