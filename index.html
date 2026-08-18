@@ -740,8 +740,8 @@ async function screenLibrary() {
         ${novinka ? '<div class="au" style="color:var(--acid)">★ novinka</div>' : ''}
         ${author ? `<div class="au">${esc(author)}</div>` : ''}
         <div class="ti">${esc(title)}</div>
-        ${prog ? `<div class="sub">stopa ${p.idx + 1}/${p.n} · ${fmt(p.time)}</div>
-                  <div class="bar"><i style="width:${prog}%"></i></div>` : ''}
+        ${p ? `<div class="sub">stopa ${p.idx + 1}${p.n ? '/' + p.n : ''} · ${fmt(p.time)}</div>
+              ${prog ? `<div class="bar"><i style="width:${prog}%"></i></div>` : ''}` : ''}
       </div></button>`;
   }).join('') + '</div>';
   app.querySelectorAll('.card').forEach(c => c.onclick = () => screenBook(c.dataset.n));
