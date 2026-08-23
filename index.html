@@ -112,6 +112,13 @@
     font:700 12px/1.15 var(--mono);letter-spacing:-.2px;color:#fff;
     text-transform:uppercase;text-shadow:0 2px 14px rgba(0,0,0,.9)}
   .cov.ph .rule{position:absolute;left:10px;bottom:4px;width:26px;height:2px;background:var(--a)}
+  .fresh{
+    position:absolute;top:9px;left:-30px;z-index:3;
+    transform:rotate(-45deg);width:110px;text-align:center;
+    background:linear-gradient(100deg,var(--acid),#ffb61f);color:#2a1a00;
+    font:800 9px/1 var(--mono);letter-spacing:.22em;text-transform:uppercase;
+    padding:5px 0;box-shadow:0 2px 12px rgba(247,233,78,.5);
+  }
   .meta{padding:10px 11px 12px}
   .au{
     font:600 9.5px/1.3 var(--mono);color:var(--cyan);text-transform:uppercase;
@@ -399,6 +406,12 @@ const pos = {
   set(b, v) { localStorage.setItem('pos:' + b, JSON.stringify(v)); }
 };
 const coverCache = {};
+/* Kniha je „fresh“, dokud ji poprvé neotevřeš. Při úplně prvním spuštění
+   se všechny stávající označí jako viděné, aby nesvítila celá knihovna. */
+const videno = {
+  nacti() { try { return new Set(JSON.parse(localStorage.getItem('videno')) || []); } catch { return new Set(); } },
+  uloz(s) { localStorage.setItem('videno', JSON.stringify([...s])); }
+};
 /* Knihy vypsané první, v tomto pořadí; zbytek pak abecedně. */
 const PRVNI = ['Pýcha, Petr - Benzína Dehtov'];
 const poradi = (a, b) => {
@@ -729,12 +742,19 @@ async function screenLibrary() {
 
   await sladit(books.map(b => b.name));
 
+  let vid = videno.nacti();
+  if (!localStorage.getItem('videno')) {        // první spuštění: nic není novinka
+    vid = new Set(books.map(b => b.name));
+    videno.uloz(vid);
+  }
+
   app.querySelector('main').innerHTML = '<div class="grid">' + books.map(b => {
     const { author, title } = splitName(b.name);
     const p = pos.get(b.name);
     const prog = p && p.n ? Math.round((p.idx + 1) / p.n * 100) : 0;
     const novinka = PRVNI.includes(b.name);
     return `<button class="card" data-n="${esc(b.name)}">
+      ${vid.has(b.name) ? '' : '<span class="fresh">fresh</span>'}
       <div class="cov ph" data-cov="${esc(b.name)}">${artHTML(b.name)}</div>
       <div class="meta">
         ${novinka ? '<div class="au" style="color:var(--acid)">★ novinka</div>' : ''}
@@ -773,6 +793,7 @@ async function loadCover(book) {
 }
 
 async function screenBook(book) {
+  const v = videno.nacti(); v.add(book); videno.uloz(v);
   const { author, title } = splitName(book);
   app.innerHTML = `<header><button class="btn" id="back">‹ Zpět</button>
     <h1>${esc(title)}</h1></header><main><div class="empty">Načítám…</div></main>`;
