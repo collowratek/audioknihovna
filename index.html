@@ -112,6 +112,14 @@
     font:700 12px/1.15 var(--mono);letter-spacing:-.2px;color:#fff;
     text-transform:uppercase;text-shadow:0 2px 14px rgba(0,0,0,.9)}
   .cov.ph .rule{position:absolute;left:10px;bottom:4px;width:26px;height:2px;background:var(--a)}
+  .offline{
+    position:absolute;top:9px;right:9px;z-index:3;width:22px;height:22px;
+    border-radius:11px;background:rgba(4,2,12,.82);border:1px solid var(--cyan);
+    color:var(--cyan);font:700 11px/20px var(--mono);text-align:center;
+  }
+  .stahni{display:flex;align-items:center;gap:9px;margin-top:10px}
+  .stahni .prubeh{flex:1;height:3px;background:var(--line);overflow:hidden;display:none}
+  .stahni .prubeh i{display:block;height:100%;width:0;background:var(--cyan)}
   .fresh{
     position:absolute;top:9px;left:-30px;z-index:3;
     transform:rotate(-45deg);width:110px;text-align:center;
@@ -400,6 +408,51 @@ async function ulozNaSit(kniha, rec) {
   finally { synchronizuji = false; }
 }
 
+
+/* ---------- offline poslech ----------
+   Bajty cizího souboru přečíst nelze, ale uložit ano: stáhne se jako
+   „neprůhledná“ odpověď a uloží pod vlastní adresou /offline/<ident>.
+   Servisní worker ji pak přehravači podstrčí i bez signálu.            */
+const CACHE = 'audio-offline-v1';
+const offKlic = ident => location.pathname.replace(/\/$/, '') + '/offline/' + ident;
+
+async function jeOffline(ident) {
+  try { return !!(await (await caches.open(CACHE)).match(offKlic(ident))); }
+  catch { return false; }
+}
+async function stopyOffline(tracks) {
+  const c = await caches.open(CACHE);
+  const stav = await Promise.all(tracks.map(t => c.match(offKlic(t.ident))));
+  return stav.filter(Boolean).length;
+}
+async function stahniKnihu(tracks, hlas) {
+  const c = await caches.open(CACHE);
+  let hotovo = 0;
+  for (const t of tracks) {
+    if (!(await c.match(offKlic(t.ident)))) {
+      try {
+        const r = await fetch(await fileLink(t.ident), { mode: 'no-cors' });
+        await c.put(offKlic(t.ident), r);       // put snese neprůhlednou odpověď, add ne
+      } catch (e) { /* jednu stopu přeskočíme, zbytek pokračuje */ }
+    }
+    hlas(++hotovo, tracks.length);
+  }
+}
+async function smazKnihu(tracks) {
+  const c = await caches.open(CACHE);
+  for (const t of tracks) await c.delete(offKlic(t.ident));
+}
+async function mistoNaDisku() {
+  try {
+    const q = await navigator.storage.estimate();
+    return `${(q.usage / 2 ** 20).toFixed(0)} MB z ${(q.quota / 2 ** 30).toFixed(1)} GB`;
+  } catch { return ''; }
+}
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register(location.pathname.replace(/\/$/, '') + '/sw.js')
+    .catch(() => { /* bez workera prostě offline nepojede */ });
+}
+
 /* ---------- pomocne ---------- */
 const pos = {
   get(b) { try { return JSON.parse(localStorage.getItem('pos:' + b)); } catch { return null; } },
@@ -571,7 +624,8 @@ async function playTrack(idx, seekTo) {
   el('plNow').innerHTML = '<b>' + esc(t.name.replace(/\.[^.]+$/, '')) + '</b> · ' + esc(splitName(hraje.book).title);
   pl.classList.add('on'); document.body.classList.add('hraje'); zmerPrehravac();
   try {
-    au.src = await fileLink(t.ident);
+    const mistni = offKlic(t.ident);
+    au.src = (await jeOffline(t.ident)) ? mistni : await fileLink(t.ident);
     if (seekTo) {
       const once = () => { au.currentTime = seekTo; au.removeEventListener('loadedmetadata', once); };
       au.addEventListener('loadedmetadata', once);
@@ -742,6 +796,18 @@ async function screenLibrary() {
 
   await sladit(books.map(b => b.name));
 
+  const off = new Set();
+  try {
+    const c = await caches.open(CACHE);
+    const klice = (await c.keys()).map(r => new URL(r.url).pathname);
+    if (klice.length) {
+      for (const b of books) {
+        const t = (await listDir(ROOT + '/' + b.name)).filter(x => x.kind === 'file');
+        if (t.length && t.every(x => klice.includes(offKlic(x.ident)))) off.add(b.name);
+      }
+    }
+  } catch { /* offline vrstva je nepovinná */ }
+
   let vid = videno.nacti();
   if (!localStorage.getItem('videno')) {        // první spuštění: nic není novinka
     vid = new Set(books.map(b => b.name));
@@ -755,6 +821,7 @@ async function screenLibrary() {
     const novinka = PRVNI.includes(b.name);
     return `<button class="card" data-n="${esc(b.name)}">
       ${vid.has(b.name) ? '' : '<span class="fresh">fresh</span>'}
+      ${off.has(b.name) ? '<span class="offline" title="staženo">⤓</span>' : ''}
       <div class="cov ph" data-cov="${esc(b.name)}">${artHTML(b.name)}</div>
       <div class="meta">
         ${novinka ? '<div class="au" style="color:var(--acid)">★ novinka</div>' : ''}
@@ -823,7 +890,11 @@ async function screenBook(book) {
           ${author ? `<div class="a">${esc(author)}</div>` : ''}
           <div class="sub">${files.length} stop</div>
           <button class="btn btn-acc" id="res" style="margin-top:11px">
-            ${p ? `Pokračovat ${p.idx + 1}. · ${fmt(p.time)}` : 'Přehrát'}</button></div>
+            ${p ? `Pokračovat ${p.idx + 1}. · ${fmt(p.time)}` : 'Přehrát'}</button>
+          <div class="stahni">
+            <button class="btn" id="bStahni">do telefonu</button>
+            <span class="prubeh" id="prubeh"><i></i></span>
+          </div></div>
       </div>` + files.map((f, i) =>
         `<button class="tr ${i === cur.idx ? 'on' : ''} ${p && i < p.idx ? 'done' : ''}" data-i="${i}">
           <span class="n">${String(i + 1).padStart(2, '0')}</span>
@@ -832,6 +903,31 @@ async function screenBook(book) {
           </button>`).join('');
     el('res').onclick = () => playTrack(cur.idx, p && p.idx === cur.idx ? p.time : 0);
     app.querySelectorAll('.tr').forEach(r => r.onclick = () => playTrack(+r.dataset.i, 0));
+
+    const bs = el('bStahni'), pr = el('prubeh');
+    const obnovStav = async () => {
+      const mam = await stopyOffline(files);
+      bs.textContent = mam === files.length ? 'smazat z telefonu'
+                     : mam ? `dostáhnout (${mam}/${files.length})`
+                     : 'do telefonu';
+      bs.classList.toggle('aktivni', mam === files.length);
+    };
+    obnovStav();
+    bs.onclick = async () => {
+      const mam = await stopyOffline(files);
+      if (mam === files.length) {
+        bs.textContent = 'mažu…'; await smazKnihu(files); obnovStav(); return;
+      }
+      pr.style.display = 'block'; bs.disabled = true;
+      await stahniKnihu(files, (h, c) => {
+        bs.textContent = `stahuji ${h}/${c}`;
+        pr.firstElementChild.style.width = (h / c * 100) + '%';
+      });
+      bs.disabled = false; pr.style.display = 'none';
+      obnovStav();
+      const m = await mistoNaDisku();
+      if (m) el('res').insertAdjacentHTML('afterend', `<div class="sub">v telefonu: ${m}</div>`);
+    };
   };
   cur.render = draw;
   draw();
