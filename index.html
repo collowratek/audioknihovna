@@ -408,6 +408,13 @@ const pos = {
   set(b, v) { localStorage.setItem('pos:' + b, JSON.stringify(v)); }
 };
 const coverCache = {};
+/* Kde leží cover.jpg si pamatujeme natrvalo — ident se nemění, takže
+   při dalším spuštění odpadá výpis složky a zbyde jediný dotaz.
+   false = kniha obálku nemá, tu už nezkoušíme vůbec.                  */
+const obalky = {
+  nacti() { try { return JSON.parse(localStorage.getItem('obalky')) || {}; } catch { return {}; } },
+  uloz(m) { try { localStorage.setItem('obalky', JSON.stringify(m)); } catch {} }
+};
 /* Kniha je „fresh“, dokud ji poprvé neotevřeš. Při úplně prvním spuštění
    se všechny stávající označí jako viděné, aby nesvítila celá knihovna. */
 const videno = {
@@ -769,22 +776,41 @@ async function screenLibrary() {
   }).join('') + '</div>';
   app.querySelectorAll('.card').forEach(c => c.onclick = () => screenBook(c.dataset.n));
 
-  // skutecne obalky po trech, ať se spojení nezahltí
-  (async () => {
-    const q = books.slice();
-    const worker = async () => { while (q.length) await loadCover(q.shift().name); };
-    await Promise.all([worker(), worker(), worker()]);
-  })();
+  // obálky až ve chvíli, kdy se dlaždice objeví na obrazovce
+  const fronta = [];
+  let bezi = 0;
+  const poust = () => {
+    while (fronta.length && bezi < 6) {
+      bezi++;
+      loadCover(fronta.shift()).finally(() => { bezi--; poust(); });
+    }
+  };
+  const pozorovatel = new IntersectionObserver((zaznamy, o) => {
+    for (const z of zaznamy) {
+      if (!z.isIntersecting) continue;
+      o.unobserve(z.target);
+      fronta.push(z.target.dataset.cov);
+    }
+    poust();
+  }, { rootMargin: '400px' });
+  app.querySelectorAll('[data-cov]').forEach(el => pozorovatel.observe(el));
 }
 
 async function loadCover(book) {
   try {
     if (coverCache[book] === false) return;
     if (!coverCache[book]) {
-      const f = (await listDir(ROOT + '/' + book))
-        .find(x => /^cover\.(jpg|jpeg|png|webp)$/i.test(x.name));
-      if (!f) { coverCache[book] = false; return; }
-      coverCache[book] = await fileLink(f.ident);
+      const m = obalky.nacti();
+      let ident = m[book];
+      if (ident === false) { coverCache[book] = false; return; }   // víme, že obálku nemá
+      if (!ident) {
+        const f = (await listDir(ROOT + '/' + book))
+          .find(x => /^cover\.(jpg|jpeg|png|webp)$/i.test(x.name));
+        ident = f ? f.ident : false;
+        m[book] = ident; obalky.uloz(m);
+        if (!f) { coverCache[book] = false; return; }
+      }
+      coverCache[book] = await fileLink(ident);
     }
     // skutečná obálka z archivu má přednost a jde bez přebarvení
     document.querySelectorAll('[data-cov]').forEach(box => {
