@@ -411,10 +411,16 @@ const coverCache = {};
 /* Kde leží cover.jpg si pamatujeme natrvalo — ident se nemění, takže
    při dalším spuštění odpadá výpis složky a zbyde jediný dotaz.
    false = kniha obálku nemá, tu už nezkoušíme vůbec.                  */
-const obalky = {
-  nacti() { try { return JSON.parse(localStorage.getItem('obalky')) || {}; } catch { return {}; } },
-  uloz(m) { try { localStorage.setItem('obalky', JSON.stringify(m)); } catch {} }
-};
+let obalkyMapa = (() => {
+  try { return JSON.parse(localStorage.getItem('obalky')) || {}; } catch { return {}; }
+})();
+let obalkyCasovac = null;
+function ulozObalky() {            // jedna sdílená mapa, zápis se sloučí
+  clearTimeout(obalkyCasovac);
+  obalkyCasovac = setTimeout(() => {
+    try { localStorage.setItem('obalky', JSON.stringify(obalkyMapa)); } catch {}
+  }, 300);
+}
 /* Kniha je „fresh“, dokud ji poprvé neotevřeš. Při úplně prvním spuštění
    se všechny stávající označí jako viděné, aby nesvítila celá knihovna. */
 const videno = {
@@ -800,14 +806,13 @@ async function loadCover(book) {
   try {
     if (coverCache[book] === false) return;
     if (!coverCache[book]) {
-      const m = obalky.nacti();
-      let ident = m[book];
+      let ident = obalkyMapa[book];
       if (ident === false) { coverCache[book] = false; return; }   // víme, že obálku nemá
       if (!ident) {
         const f = (await listDir(ROOT + '/' + book))
           .find(x => /^cover\.(jpg|jpeg|png|webp)$/i.test(x.name));
         ident = f ? f.ident : false;
-        m[book] = ident; obalky.uloz(m);
+        obalkyMapa[book] = ident; ulozObalky();
         if (!f) { coverCache[book] = false; return; }
       }
       coverCache[book] = await fileLink(ident);
