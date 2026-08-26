@@ -858,6 +858,7 @@ async function screenBook(book) {
           <div class="sub">${files.length} stop</div>
           <button class="btn btn-acc" id="res" style="margin-top:11px">
             ${p ? `Pokračovat ${p.idx + 1}. · ${fmt(p.time)}` : 'Přehrát'}</button>
+        </div>
       </div>` + files.map((f, i) =>
         `<button class="tr ${i === cur.idx ? 'on' : ''} ${p && i < p.idx ? 'done' : ''}" data-i="${i}">
           <span class="n">${String(i + 1).padStart(2, '0')}</span>
