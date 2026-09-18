@@ -427,8 +427,13 @@ const videno = {
   nacti() { try { return new Set(JSON.parse(localStorage.getItem('videno')) || []); } catch { return new Set(); } },
   uloz(s) { localStorage.setItem('videno', JSON.stringify([...s])); }
 };
-/* Knihy vypsané první, v tomto pořadí; zbytek pak abecedně. */
-const PRVNI = ['Pýcha, Petr - Benzína Dehtov'];
+/* Knihy vypsané první, v tomto pořadí; zbytek pak abecedně.
+   Nový přírůstek se píše na začátek seznamu, aby byl v knihovně vlevo nahoře. */
+const PRVNI = [
+  'Tolkien, J. R. R. - Pán prstenů 2 - Dvě věže (čte Aleš Procházka)',
+  'Benchley, Peter - Čelisti',
+  'Pýcha, Petr - Benzína Dehtov'
+];
 const poradi = (a, b) => {
   const ia = PRVNI.indexOf(a.name), ib = PRVNI.indexOf(b.name);
   if (ia !== -1 || ib !== -1) return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
