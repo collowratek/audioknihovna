@@ -408,17 +408,29 @@ const pos = {
   set(b, v) { localStorage.setItem('pos:' + b, JSON.stringify(v)); }
 };
 const coverCache = {};
-/* Kde leží cover.jpg si pamatujeme natrvalo — ident se nemění, takže
-   při dalším spuštění odpadá výpis složky a zbyde jediný dotaz.
-   false = kniha obálku nemá, tu už nezkoušíme vůbec.                  */
+/* Kde leží cover.jpg si pamatujeme, ident se nemění, takže při dalším
+   spuštění odpadá výpis složky a zbyde jediný dotaz.
+   Záporný nález (kniha obálku nemá) se pamatuje jen den: obálka může
+   přibýt kdykoli a bez toho by ji zařízení, které knihovnu otevřelo dřív,
+   neukázalo nikdy. Číslo verze zahodí celou mapu, když se zde něco změní. */
+const OBALKY_VERZE = 2;
+const DEN = 24 * 60 * 60 * 1000;
 let obalkyMapa = (() => {
-  try { return JSON.parse(localStorage.getItem('obalky')) || {}; } catch { return {}; }
+  try {
+    const u = JSON.parse(localStorage.getItem('obalky'));
+    if (!u || u.verze !== OBALKY_VERZE) return {};
+    const m = u.mapa || {};
+    for (const k of Object.keys(m)) {                 // propadlé záporné nálezy zahodit
+      if (typeof m[k] === 'number' && Date.now() - m[k] > DEN) delete m[k];
+    }
+    return m;
+  } catch { return {}; }
 })();
 let obalkyCasovac = null;
 function ulozObalky() {            // jedna sdílená mapa, zápis se sloučí
   clearTimeout(obalkyCasovac);
   obalkyCasovac = setTimeout(() => {
-    try { localStorage.setItem('obalky', JSON.stringify(obalkyMapa)); } catch {}
+    try { localStorage.setItem('obalky', JSON.stringify({ verze: OBALKY_VERZE, mapa: obalkyMapa })); } catch {}
   }, 300);
 }
 /* Kniha je „fresh“, dokud ji poprvé neotevřeš. Při úplně prvním spuštění
@@ -817,11 +829,14 @@ async function loadCover(book) {
     if (coverCache[book] === false) return;
     if (!coverCache[book]) {
       let ident = obalkyMapa[book];
-      if (ident === false) { coverCache[book] = false; return; }   // víme, že obálku nemá
+      if (typeof ident === 'number') {                 // nedávno tam žádná nebyla
+        if (Date.now() - ident < DEN) { coverCache[book] = false; return; }
+        ident = null;                                   // den uplynul, zkusíme znovu
+      }
       if (!ident) {
         const f = (await listDir(ROOT + '/' + book))
           .find(x => /^cover\.(jpg|jpeg|png|webp)$/i.test(x.name));
-        ident = f ? f.ident : false;
+        ident = f ? f.ident : Date.now();
         obalkyMapa[book] = ident; ulozObalky();
         if (!f) { coverCache[book] = false; return; }
       }
