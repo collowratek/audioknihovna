@@ -182,6 +182,14 @@
     display:flex;align-items:center;justify-content:center;
     box-shadow:0 0 26px rgba(255,45,149,.5);
   }
+  /* Pin se ovládá po tmě jednou rukou, proto velká plocha a viditelnost
+     i ve sbaleném přehrávači, což je ten noční stav.                   */
+  .ctl3{display:flex;gap:10px;margin-top:10px}
+  .ctl3 button{flex:1;min-height:46px;font:600 12px/1 var(--mono);letter-spacing:.1em;
+    text-transform:uppercase;color:var(--cyan);border:1px solid var(--cyan);border-radius:4px}
+  .ctl3 button#bPin{color:var(--acid);border-color:var(--acid)}
+  .ctl3 button[disabled]{color:var(--dim);border-color:var(--line);opacity:.55}
+  .ctl3 button.ceka{border-style:dashed}
   .ctl2{display:flex;justify-content:center;gap:10px;margin-top:9px}
   .ctl2 button{font:600 10.5px/1 var(--mono);letter-spacing:.09em;text-transform:uppercase;
     color:var(--dim);padding:6px 10px;border:1px solid var(--line);border-radius:3px}
@@ -209,6 +217,10 @@
     <button class="play" id="bPlay">▶</button>
     <button class="btn" id="bFwd">+30</button>
     <button class="btn" id="bNext">⏭</button>
+  </div>
+  <div class="ctl3">
+    <button id="bPin">PIN sem</button>
+    <button id="bNaPin" disabled>na pin</button>
   </div>
   <div class="ctl2">
     <button id="bKrok">krok 30 s</button>
@@ -354,59 +366,165 @@ const fileLink = async ident => (await api('file_link', {
 const SYNC = '/audioknihy-pozice';
 const otisk = k => md5hex(k).slice(0, 10);
 let synchronizuji = false, poslednisync = 0;
+let posledniVypis = null;        // sdílený výsledek posledního výpisu složky
+
+/* ---------- kód posluchače ----------
+   Nepovinné slovo, kterým se odliší rozposlouchaný čas více lidí na jednom
+   archivu. Do názvu souboru jde jen jeho otisk, takže posluchač může napsat
+   cokoli (mezery, emoji, uvozovky) a název souboru zůstane neškodný.
+   Prázdný kód je plnohodnotný kód „společný“.                          */
+const KOD_SPOLECNY = 'společný';
+const normKod = s => (s || '').replace(/[\s\u00a0\u200b\u2060]+/g, ' ').trim().toLowerCase();
+let kod = localStorage.getItem('kod') || '';
+const kodOtisk = () => md5hex(normKod(kod) || KOD_SPOLECNY).slice(0, 6);
+
+/* Nový tvar názvu: ak2_<kód>_<kniha>_<typ>_<stopa>_<sekundy>_<čas>.txt
+   Typ je m pro místo v knize, p pro pin. Pevný počet polí, takže ani kód
+   s podtržítkem nebo samá čísla nic nerozhodí. Dnešní záznamy začínají poz_
+   a nový úklid se jich nikdy nedotkne, jen se z nich čte.              */
+const zacatekVlastnich = (kniha, typ) => `ak2_${kodOtisk()}_${otisk(kniha)}_${typ}_`;
+
+/* Změna kódu za běhu: co se dosud poslouchalo, patří ještě starému kódu,
+   proto se to uloží dřív, než se přepne. Minutový odstup mezi zápisy se
+   zruší, aby první zápis pod novým kódem nečekal.                      */
+async function nastavKod(novy) {
+  if (normKod(novy) === normKod(kod)) { kod = novy; localStorage.setItem('kod', novy); return; }
+  if (typeof hraje !== 'undefined' && hraje) {
+    const rec = { idx: hraje.idx, time: au.currentTime || 0, n: hraje.tracks.length, ts: Date.now() };
+    pos.set(hraje.book, rec);
+    await ulozNaSit(hraje.book, rec, 'm');
+  }
+  kod = novy;
+  localStorage.setItem('kod', novy);
+  poslednisync = 0;
+  if (typeof nastavKrok === 'function')       // délka přeskoku patří novému kódu
+    nastavKrok(+(localStorage.getItem(krokKlic()) || 30), false);
+}
+const jmenoZaznamu = (kniha, typ, idx, sek, ts) =>
+  zacatekVlastnich(kniha, typ) + `${idx}_${Math.round(sek)}_${ts || Date.now()}.txt`;
 
 async function nactiZeSite() {
-  const mapa = {};
+  const mujKod = kodOtisk();
+  const mapa = {};      // vlastní záznamy tohoto posluchače
+  const spolecne = {};  // dnešní záznamy, společné všem, slouží jako výchozí
+  const lepsi = (kam, klic, zaznam) => {
+    if (!kam[klic] || zaznam.ts > kam[klic].ts) kam[klic] = zaznam;
+  };
   for (const f of await listDir(SYNC)) {
-    const m = f.name.match(/^poz_([0-9a-f]{10})_(\d+)_(\d+)_(\d+)\.txt$/);
-    if (!m) continue;
-    const [, h, idx, sek, ts] = m;
-    if (!mapa[h] || +ts > mapa[h].ts) mapa[h] = { idx: +idx, time: +sek, ts: +ts, ident: f.ident };
-    else if (f.ident !== mapa[h].ident) mapa[h].stare = (mapa[h].stare || []).concat(f.ident);
+    const nove = f.name.match(/^ak2_([0-9a-f]{6})_([0-9a-f]{10})_([mpk])_(\d+)_(\d+)_(\d+)\.txt$/);
+    if (nove) {
+      const [, kodH, h, typ, idx, sek, ts] = nove;
+      if (kodH !== mujKod) continue;                       // cizí posluchač, nezajímá nás
+      lepsi(mapa, h + ':' + typ, { idx: +idx, time: +sek, ts: +ts, ident: f.ident });
+      continue;
+    }
+    const stary = f.name.match(/^poz_([0-9a-f]{10})_(\d+)_(\d+)_(\d+)\.txt$/);
+    if (stary) {
+      const [, h, idx, sek, ts] = stary;
+      lepsi(spolecne, h + ':m', { idx: +idx, time: +sek, ts: +ts, ident: f.ident });
+    }
   }
+  for (const klic of Object.keys(spolecne))                 // vlastní vždy přebíjí společný
+    if (!mapa[klic]) mapa[klic] = spolecne[klic];
   return mapa;
 }
 
 async function sladit(knihy) {
   try {
     const site = await nactiZeSite();
+    posledniVypis = site;                   // ať ho nemusí stahovat i nastavení
     for (const kniha of knihy) {
-      const s = site[otisk(kniha)];
-      if (!s) continue;
-      const m = pos.get(kniha);
-      if (!m || (s.ts || 0) > (m.ts || 0)) {
-        pos.set(kniha, { idx: s.idx, time: s.time, n: (m && m.n) || 0, ts: s.ts });
+      const s = site[otisk(kniha) + ':m'];
+      if (s) {
+        const m = pos.get(kniha);
+        if (!m || (s.ts || 0) > (m.ts || 0))
+          pos.set(kniha, { idx: s.idx, time: s.time, n: (m && m.n) || 0, ts: s.ts });
+      }
+      const sp = site[otisk(kniha) + ':p'];       // pin z jiného zařízení
+      if (sp) {
+        const mp = pin.get(kniha);
+        if (!mp || (sp.ts || 0) > (mp.ts || 0))
+          pin.set(kniha, { idx: sp.idx, time: sp.time, ts: sp.ts });
       }
     }
   } catch (e) { /* bez sítě se prostě použije místní záznam */ }
+  if (typeof ukazPin === 'function' && hraje) ukazPin();
 }
 
-async function ulozNaSit(kniha, rec) {
-  if (synchronizuji) return;
+/* Délka přeskoku z jiného zařízení. Jen pro posluchače s kódem.        */
+async function sladitNastaveni() {
+  if (!normKod(kod)) return;
+  try {
+    const site = posledniVypis || await nactiZeSite();
+    const s = site[otisk(NASTAVENI) + ':k'];
+    if (s && KROKY.includes(s.time)) nastavKrok(s.time, false);
+  } catch (e) { /* bez sítě zůstane místní nastavení */ }
+}
+
+async function ulozNaSit(kniha, rec, typ) {
+  typ = typ || 'm';
+  if (synchronizuji) return false;
   synchronizuji = true;
   try {
-    const h = otisk(kniha);
-    const jmeno = `poz_${h}_${rec.idx}_${Math.round(rec.time)}_${Date.now()}.txt`;
+    const zacatek = zacatekVlastnich(kniha, typ);
+    const jmeno = jmenoZaznamu(kniha, typ, rec.idx, rec.time, rec.ts);
     const fd = new FormData();
     fd.append('wst', WST); fd.append('private', '1'); fd.append('folder', SYNC);
     fd.append('file', new Blob(['.'], { type: 'text/plain' }), jmeno);
     const r = await fetch('https://upload2.wsup.cz/api/upload/index.php', { method: 'POST', body: fd });
-    if (!(await r.text()).includes('"ident"')) return;
-    for (const f of await listDir(SYNC)) {          // uklidit starší zápisy téže knihy
-      if (f.name.startsWith('poz_' + h + '_') && f.name !== jmeno)
+    if (!(await r.text()).includes('"ident"')) return false;
+    // uklidit jen vlastní starší záznamy téhož typu; cizí kódy, piny
+    // ani dnešní záznamy začínající poz_ se nikdy nemažou
+    for (const f of await listDir(SYNC)) {
+      if (f.name.startsWith(zacatek) && f.name !== jmeno)
         await api('remove_file', { ident: f.ident }).catch(() => {});
     }
-  } catch (e) { /* neúspěch nevadí, místní záznam zůstává */ }
+    return true;
+  } catch (e) { return false; }   // neúspěch nevadí, místní záznam zůstává
   finally { synchronizuji = false; }
 }
 
 
 
 /* ---------- pomocne ---------- */
+/* Místní paměť je oddělená pro každý kód. Kdo si kód zadá poprvé, čte ještě
+   z dosavadního společného záznamu, dokud si nevytvoří vlastní.        */
 const pos = {
-  get(b) { try { return JSON.parse(localStorage.getItem('pos:' + b)); } catch { return null; } },
-  set(b, v) { localStorage.setItem('pos:' + b, JSON.stringify(v)); }
+  klic(b) { return 'pos:' + kodOtisk() + ':' + b; },
+  get(b) {
+    try {
+      const vlastni = localStorage.getItem(this.klic(b));
+      if (vlastni) return JSON.parse(vlastni);
+      return JSON.parse(localStorage.getItem('pos:' + b));
+    } catch { return null; }
+  },
+  set(b, v) { localStorage.setItem(this.klic(b), JSON.stringify(v)); }
 };
+/* ---------- pin ----------
+   Záložka na místo, kde posluchač začal poslouchat před spaním. Drží se
+   odděleně od běžného místa v knize, protože to se přepisuje každých pár
+   sekund poslechu a pin by v něm nepřežil.                             */
+const pin = {
+  klic(b) { return 'pin:' + kodOtisk() + ':' + b; },
+  get(b) { try { return JSON.parse(localStorage.getItem(this.klic(b))); } catch { return null; } },
+  set(b, v) { localStorage.setItem(this.klic(b), JSON.stringify(v)); }
+};
+
+/* Ukládání na síť drží jeden společný zámek. Kdyby pin čekal jen jedno kolo,
+   ťuknutí během ukládání místa by zmizelo bez hlášení, proto si chvíli počká. */
+async function ulozPinNaSit(kniha, rec) {
+  for (let i = 0; i < 40 && synchronizuji; i++) await new Promise(r => setTimeout(r, 250));
+  return ulozNaSit(kniha, rec, 'p');
+}
+
+/* Pin, který se nepodařilo odeslat, zůstane v prohlížeči s příznakem
+   a odešle se při nejbližší další příležitosti.                        */
+async function doruciCekajiciPin(kniha) {
+  const p = pin.get(kniha);
+  if (!p || !p.ceka) return;
+  if (await ulozPinNaSit(kniha, p)) { delete p.ceka; pin.set(kniha, p); ukazPin(); }
+}
+
 const coverCache = {};
 /* Kde leží cover.jpg si pamatujeme, ident se nemění, takže při dalším
    spuštění odpadá výpis složky a zbyde jediný dotaz.
@@ -609,7 +727,7 @@ async function playTrack(idx, seekTo) {
   pl.classList.add('on'); document.body.classList.add('hraje'); zmerPrehravac();
   try {
     au.src = await fileLink(t.ident);
-    if (seekTo) {
+    if (seekTo != null) {            // nula je platný čas, proto ne pouhá pravdivost
       const once = () => { au.currentTime = seekTo; au.removeEventListener('loadedmetadata', once); };
       au.addEventListener('loadedmetadata', once);
     }
@@ -618,16 +736,21 @@ async function playTrack(idx, seekTo) {
     el('plNow').textContent = 'Nepodařilo se spustit: ' + e.message;
     return;
   }
-  save();
+  // uložit až s časem, na který se skáče, jinak by se uložila nula
+  // a přepsala rozposlouchané místo na všech zařízeních
+  save(false, seekTo != null ? seekTo : undefined);
+  ukazPin();
   hraje.render && hraje.render();
 }
-function save(hned) {
+function save(hned, casMisto) {
   if (!hraje) return;
-  const rec = { idx: hraje.idx, time: au.currentTime || 0, n: hraje.tracks.length, ts: Date.now() };
+  const cas = casMisto != null ? casMisto : (au.currentTime || 0);
+  const rec = { idx: hraje.idx, time: cas, n: hraje.tracks.length, ts: Date.now() };
   pos.set(hraje.book, rec);
   if (hned || Date.now() - poslednisync > 60000) {
     poslednisync = Date.now();
-    ulozNaSit(hraje.book, rec);
+    const kniha = hraje.book;
+    ulozNaSit(kniha, rec).then(() => doruciCekajiciPin(kniha));
   }
 }
 au.addEventListener('timeupdate', () => {
@@ -657,18 +780,63 @@ el('bPlay').onclick = () => au.paused ? au.play() : au.pause();
 el('bNext').onclick = () => playTrack(hraje.idx + 1);
 el('bPrev').onclick = () => au.currentTime > 3 ? (au.currentTime = 0) : playTrack(hraje.idx - 1);
 const KROKY = [10, 15, 30, 60, 90];
-let krok = +(localStorage.getItem('krok') || 30);
+/* Délka přeskoku patří posluchači, ne prohlížeči, takže se drží pod jeho
+   kódem a přenáší se mezi zařízeními. Bez kódu zůstává jen tady, jinak by
+   si ji lidé navzájem přepisovali.                                     */
+const NASTAVENI = 'nastavení přehrávače';
+const krokKlic = () => 'krok:' + kodOtisk();
+let krok = +(localStorage.getItem(krokKlic()) || localStorage.getItem('krok') || 30);
+function nastavKrok(v, zapsatNaSit) {
+  krok = v;
+  localStorage.setItem(krokKlic(), krok);
+  ukazKrok(); zmerPrehravac();
+  if (zapsatNaSit && normKod(kod))
+    ulozNaSit(NASTAVENI, { idx: 0, time: krok, ts: Date.now() }, 'k');
+}
 function ukazKrok() {
   el('bFwd').textContent = '+' + krok;
   el('bBack').textContent = '−' + krok;
   el('bKrok').textContent = 'krok ' + krok + ' s';
 }
-el('bKrok').onclick = () => {
-  krok = KROKY[(KROKY.indexOf(krok) + 1) % KROKY.length];
-  localStorage.setItem('krok', krok); ukazKrok(); zmerPrehravac();
-};
+el('bKrok').onclick = () => nastavKrok(KROKY[(KROKY.indexOf(krok) + 1) % KROKY.length], true);
 el('bFwd').onclick = () => au.currentTime += krok;
 el('bBack').onclick = () => au.currentTime -= krok;
+
+/* Popisek tlačítka se musí obnovit ručně: přehrávač je mimo překreslovanou
+   část stránky, takže se sám nikdy nepřekreslí.                        */
+function ukazPin() {
+  const b = el('bNaPin');
+  const p = hraje ? pin.get(hraje.book) : null;
+  b.disabled = !p;
+  b.textContent = p ? 'na pin ' + fmt(p.time) : 'na pin';
+  b.classList.toggle('ceka', !!(p && p.ceka));
+  el('bPin').textContent = 'PIN sem';
+}
+
+el('bPin').onclick = async () => {
+  if (!hraje) return;
+  const rec = { idx: hraje.idx, time: au.currentTime || 0, ts: Date.now() };
+  pin.set(hraje.book, rec);                 // v prohlížeči hned, ať se ťuknutí neztratí
+  ukazPin();
+  el('bPin').textContent = 'ukládám…';
+  const ok = await ulozPinNaSit(hraje.book, rec);
+  if (!ok) { pin.set(hraje.book, Object.assign({}, rec, { ceka: true })); }
+  ukazPin();
+};
+
+el('bNaPin').onclick = () => {
+  if (!hraje) return;
+  const p = pin.get(hraje.book);
+  if (!p) return;
+  if (p.idx === hraje.idx) { au.currentTime = p.time; save(true); }  // táž stopa, jen přesun
+  else {
+    // playTrack pracuje s knihou otevřenou na obrazovce, ale pin patří té,
+    // která hraje. Bez tohohle by skok spustil cizí knihu a přepsal v ní místo.
+    cur = hraje;
+    playTrack(p.idx, p.time);
+  }
+  doruciCekajiciPin(hraje.book);            // při té příležitosti dolétne nedoručený pin
+};
 
 /* ---------- časovač spánku ---------- */
 const SPANEK = [0, 5, 10, 15, 30, 45, 60, -1];   // minuty, -1 = do konce stopy
@@ -738,6 +906,12 @@ function screenLogin(msg) {
       <button id="alt" style="font:600 11px/1 var(--mono);letter-spacing:.12em;
         text-transform:uppercase;color:var(--cyan)">Mám rovnou klíč ›</button>
     </div>
+    <input id="kodIn" placeholder="kód posluchače (nepovinný)" value="${esc(localStorage.getItem('kod_rozepsany') ?? kod)}"
+      autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false"
+      style="margin-top:9px">
+    <div style="font:11px/1.5 var(--mono);color:var(--dim);margin:-4px 0 9px">
+      Odliší tvůj rozposlouchaný čas od ostatních, kdo archiv používají.
+    </div>
     <div id="tokBox" style="display:none;margin-top:13px">
       <input id="tok" placeholder="Mám chuť na ${CHUT[~~(Math.random() * CHUT.length)]} token"
         autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false">
@@ -745,7 +919,15 @@ function screenLogin(msg) {
     </div>
   </div>`;
 
-  const enter = t => { WST = t; localStorage.setItem('wst', t); screenLibrary(); };
+  // rozepsaný kód se jen zapamatuje, platným se stane až při připojení;
+  // nepovedené přihlášení ho tím pádem nesmaže a mezitím nic nepřepíše
+  el('kodIn').oninput = e => localStorage.setItem('kod_rozepsany', e.target.value);
+
+  const enter = async t => {
+    const rozepsany = localStorage.getItem('kod_rozepsany');
+    if (rozepsany !== null) { await nastavKod(rozepsany); localStorage.removeItem('kod_rozepsany'); }
+    WST = t; localStorage.setItem('wst', t); screenLibrary();
+  };
 
   const go = async () => {
     const u = ocisti(el('usr').value), p = el('pwd').value;
@@ -765,8 +947,29 @@ function screenLogin(msg) {
 
 async function screenLibrary() {
   app.innerHTML = `<header><h1>Audioknihovna</h1>
+    <button class="btn" id="bKod" title="${esc(kod)}"
+      style="max-width:38vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
+      >${kod ? esc(normKod(kod).slice(0, 12)) : 'kód'}</button>
     <button class="btn" id="out">Odpojit</button></header>
+    <div id="kodPanel" style="display:none;margin:0 0 15px">
+      <input id="kodIn2" placeholder="kód posluchače (nepovinný)" value="${esc(kod)}"
+        autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false">
+      <div style="font:11px/1.5 var(--mono);color:var(--dim);margin:-6px 0 9px">
+        Odliší tvůj rozposlouchaný čas od ostatních. Prázdné pole znamená společný.
+      </div>
+      <button class="btn btn-acc" id="kodOk" style="width:100%">Uložit kód</button>
+    </div>
     <main><div class="empty">Načítám…</div></main>`;
+  el('bKod').onclick = () => {
+    const panel = el('kodPanel');
+    panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+    if (panel.style.display === 'block') el('kodIn2').focus();
+  };
+  el('kodOk').onclick = async () => {
+    el('kodOk').textContent = 'Ukládám…'; el('kodOk').disabled = true;
+    await nastavKod(el('kodIn2').value);
+    screenLibrary();                      // znovu načíst, ať se místa srovnají pod novým kódem
+  };
   el('out').onclick = () => {
     localStorage.removeItem('wst'); WST = '';
     au.pause(); pl.classList.remove('on'); document.body.classList.remove('hraje'); screenLogin();
@@ -778,6 +981,7 @@ async function screenLibrary() {
     return app.querySelector('main').innerHTML = '<div class="empty">Knihovna je prázdná</div>';
 
   await sladit(books.map(b => b.name));
+  sladitNastaveni();                      // na pozadí, knihovna na ni nečeká
 
 
   let vid = videno.nacti();
