@@ -399,6 +399,7 @@ async function nastavKod(novy) {
   poslednisync = 0;
   if (typeof nastavKrok === 'function')       // délka přeskoku patří novému kódu
     nastavKrok(+(localStorage.getItem(krokKlic()) || 30), false);
+  if (typeof ukazPin === 'function') ukazPin();   // ať popisek neukazuje pin předchozího
 }
 const jmenoZaznamu = (kniha, typ, idx, sek, ts) =>
   zacatekVlastnich(kniha, typ) + `${idx}_${Math.round(sek)}_${ts || Date.now()}.txt`;
