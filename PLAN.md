@@ -199,8 +199,8 @@ Závisí na: etapy 1 až 3
 Potřebuju od tebe: souhlas s uložením do gitu a s nasazením
 
 Hotovo, když:
-- [ ] Změna je uložená v gitu a nasazená.
-- [ ] Na adrese knihovny projde zkouška dvou kódů i zkouška pinu, včetně
+- [x] Změna je uložená v gitu a nasazená.
+- [x] Na adrese knihovny projde zkouška dvou kódů i zkouška pinu, včetně
       přenosu mezi dvěma profily.
 - [ ] Dosavadní rozposlouchaná místa jsou po nasazení pořád na svých místech,
       ověřeno u tří knih, které máš rozposlouchané.
@@ -208,7 +208,43 @@ Hotovo, když:
 Jak to ověříme: po tvém souhlasu nasadím a projdu obě zkoušky přímo na adrese
 knihovny.
 
-Stav: čeká
+Stav: hotovo kromě poslední odrážky, na tu je potřeba přihlášená knihovna.
+
+### Jak nasazení proběhlo, 12. 10. 2026
+
+Tři commity: samotná změna, pojistka proti uložení nuly (viz níž) a obnovení
+popisku tlačítka po změně kódu. Všechno je na adrese knihovny.
+
+Zkouška na nasazené verzi projela 33 kritérií a všechna prošla: čtení
+dosavadních záznamů bez kódu i s ním, dva kódy vedle sebe, úklid, který cizí
+záznamy nemaže, pin a jeho přenos na druhé zařízení, pin po zavření stránky,
+pin pod cizím kódem neviditelný, skok na pin na jinou stopu, ťuknutí na pin
+při jiné knize na obrazovce, délka přeskoku mezi zařízeními, tlačítka vysoká
+46 bodů a celá uvnitř displeje 375 bodů, a tlačítko Odpojit uvnitř displeje
+i při dlouhém kódu. Webshare předstíral mock v prohlížeči, takže se na
+skutečnou složku s pozicemi nesáhlo. Druhé zařízení se simuluje vyčištěním
+paměti stránky, protože mezi zařízeními se nepřenáší nic jiného než názvy
+souborů ve složce; dvě karty by paměť sdílely.
+
+Poslední odrážka zůstává nesplněná: knihovna není přihlášená v žádném
+prohlížeči na notebooku, token je na telefonu. Nejde tedy přečíst skutečnou
+složku s pozicemi a potvrdit, že tři rozposlouchané knihy ukazují svoje časy.
+Na nasazení samotném nic nezáviselo, výměna stránky do složky nezapisuje,
+ale ověřit to musí Jiří na telefonu, nebo přihlásit knihovnu v prohlížeči.
+
+### Nález z nasazené verze: skok na čas prohlížeč občas zahodí
+
+Na nasazené verzi se skok na jinou stopu neprovedl: prohlížeč seek zadaný ve
+chvíli, kdy se dozví délku stopy, zrušil a začal od nuly. Časovač ukládání tu
+nulu za pět sekund poslal dál, takže rozposlouchané místo by zmizelo na všech
+zařízeních. Týkalo se to i tlačítka Pokračovat, které v knihovně bylo
+odjakživa, takže to není chyba téhle změny, jen se o ni zakoplo při zkoušce.
+
+Ukládání teď o cíli skoku ví: dokud na něj přehrávač nedorazí, uloží se místo
+nuly cíl a skok se nejvýš pětkrát zkusí dohnat. Jakmile se posluchač někam
+převine sám, pojistka se vypne. Ověřeno: skok na pin dorazí a uloží čas pinu,
+spuštění stopy od začátku nulu uloží normálně, vlastní převinutí na začátek
+drží, tlačítko Pokračovat se vrací na uložené místo.
 
 ## Kontrola hotové změny, 10. 10. 2026
 

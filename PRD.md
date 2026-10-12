@@ -140,6 +140,15 @@ zase smazaly.
   40 dosavadních záznamů zůstalo nedotčených. Postup mazání, který použije
   hotová verze, je tím vyzkoušený nanečisto.
 
+## Ověřeno na nasazené verzi 12. 10. 2026
+
+Všech 33 kritérií prošlo přímo na adrese knihovny, podrobně v [PLAN.md](PLAN.md).
+Zkouška odhalila, že prohlížeč občas zahodí skok na čas a přehrávání začne od
+nuly, což by uložená místa přepsalo nulou; ukládání proto o cíli skoku ví
+a nulu místo něj neuloží. Nepotvrzená zůstává jediná věc: že tři rozposlouchané
+knihy ukazují na skutečném archivu svoje časy. Knihovna není přihlášená v žádném
+prohlížeči na notebooku, takže to musí potvrdit Jiří na telefonu.
+
 ## Známé slabiny, které touhle změnou neřešíme
 
 Patří sem, aby se na ně nezapomnělo, ale rozsah téhle práce to není:
