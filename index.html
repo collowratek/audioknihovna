@@ -722,6 +722,8 @@ async function playTrack(idx, seekTo) {
   if (!cur || idx < 0 || idx >= cur.tracks.length) return;
   hraje = cur;                    // od teď se pozice ukládá pod tuhle knihu
   hraje.idx = idx;
+  cilSkoku = seekTo != null && seekTo > 0 ? seekTo : null;   // viz save()
+  pokusuOSkok = 0;
   const t = hraje.tracks[idx];
   el('plNow').innerHTML = '<b>' + esc(t.name.replace(/\.[^.]+$/, '')) + '</b> · ' + esc(splitName(hraje.book).title);
   pl.classList.add('on'); document.body.classList.add('hraje'); zmerPrehravac();
@@ -742,9 +744,20 @@ async function playTrack(idx, seekTo) {
   ukazPin();
   hraje.render && hraje.render();
 }
+/* Skok na čas prohlížeč občas zahodí a přehrávání začne od nuly. Kdyby se
+   ta nula uložila, přepsala by rozposlouchané místo na všech zařízeních,
+   proto se místo ní ukládá cíl skoku a skok se ještě pár krát zkusí dohnat. */
+let cilSkoku = null, pokusuOSkok = 0;
 function save(hned, casMisto) {
   if (!hraje) return;
-  const cas = casMisto != null ? casMisto : (au.currentTime || 0);
+  let cas = casMisto != null ? casMisto : (au.currentTime || 0);
+  if (cilSkoku != null) {
+    if (au.currentTime >= cilSkoku - 2) cilSkoku = null;        // dorazili jsme
+    else if (au.currentTime < 2) {
+      if (pokusuOSkok++ < 5) au.currentTime = cilSkoku;
+      cas = cilSkoku;                                          // nikdy ne nula
+    } else cilSkoku = null;                                    // posluchač si převinul sám
+  }
   const rec = { idx: hraje.idx, time: cas, n: hraje.tracks.length, ts: Date.now() };
   pos.set(hraje.book, rec);
   if (hned || Date.now() - poslednisync > 60000) {
