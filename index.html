@@ -182,12 +182,12 @@
     display:flex;align-items:center;justify-content:center;
     box-shadow:0 0 26px rgba(255,45,149,.5);
   }
-  /* Pin se ovládá po tmě jednou rukou, proto velká plocha a viditelnost
-     i ve sbaleném přehrávači, což je ten noční stav.                   */
+  /* Časovač a návrat na místo se ovládají po tmě jednou rukou, proto velká
+     plocha a viditelnost i ve sbaleném přehrávači, což je ten noční stav. */
   .ctl3{display:flex;gap:10px;margin-top:10px}
   .ctl3 button{flex:1;min-height:46px;font:600 12px/1 var(--mono);letter-spacing:.1em;
     text-transform:uppercase;color:var(--cyan);border:1px solid var(--cyan);border-radius:4px}
-  .ctl3 button#bPin{color:var(--acid);border-color:var(--acid)}
+  .ctl3 button.aktivni{color:var(--acid);border-color:var(--acid)}
   .ctl3 button[disabled]{color:var(--dim);border-color:var(--line);opacity:.55}
   .ctl3 button.ceka{border-style:dashed}
   .ctl2{display:flex;justify-content:center;gap:10px;margin-top:9px}
@@ -219,12 +219,11 @@
     <button class="btn" id="bNext">⏭</button>
   </div>
   <div class="ctl3">
-    <button id="bPin">PIN sem</button>
-    <button id="bNaPin" disabled>na pin</button>
+    <button id="bSpanek">časovač vyp</button>
+    <button id="bNaPin" disabled>zpět na místo</button>
   </div>
   <div class="ctl2">
     <button id="bKrok">krok 30 s</button>
-    <button id="bSpanek">časovač vyp</button>
   </div>
 </div>
 
@@ -501,10 +500,10 @@ const pos = {
   },
   set(b, v) { localStorage.setItem(this.klic(b), JSON.stringify(v)); }
 };
-/* ---------- pin ----------
-   Záložka na místo, kde posluchač začal poslouchat před spaním. Drží se
-   odděleně od běžného místa v knize, protože to se přepisuje každých pár
-   sekund poslechu a pin by v něm nepřežil.                             */
+/* ---------- místo, kde posluchač zapnul časovač ----------
+   Drží se odděleně od běžného místa v knize, protože to se přepisuje každých
+   pár sekund poslechu a tohle by v něm nepřežilo. V názvu souboru na síti má
+   pořád typ p, aby zůstaly čitelné záznamy z dřívějška.                */
 const pin = {
   klic(b) { return 'pin:' + kodOtisk() + ':' + b; },
   get(b) { try { return JSON.parse(localStorage.getItem(this.klic(b))); } catch { return null; } },
@@ -822,21 +821,22 @@ function ukazPin() {
   const b = el('bNaPin');
   const p = hraje ? pin.get(hraje.book) : null;
   b.disabled = !p;
-  b.textContent = p ? 'na pin ' + fmt(p.time) : 'na pin';
+  b.textContent = p ? 'zpět na ' + fmt(p.time) : 'zpět na místo';
   b.classList.toggle('ceka', !!(p && p.ceka));
-  el('bPin').textContent = 'PIN sem';
 }
 
-el('bPin').onclick = async () => {
+/* Místo, kam se posluchač ráno vrací. Nemačká se ručně, zapíše se samo při
+   zapnutí časovače, protože to je ten okamžik, kdy jde spát. Časovač si dá
+   vždycky, kdežto na zvláštní tlačítko se dá zapomenout.                */
+async function oznacMisto() {
   if (!hraje) return;
   const rec = { idx: hraje.idx, time: au.currentTime || 0, ts: Date.now() };
-  pin.set(hraje.book, rec);                 // v prohlížeči hned, ať se ťuknutí neztratí
+  pin.set(hraje.book, rec);                 // v prohlížeči hned, ať se nic neztratí
   ukazPin();
-  el('bPin').textContent = 'ukládám…';
   const ok = await ulozPinNaSit(hraje.book, rec);
-  if (!ok) { pin.set(hraje.book, Object.assign({}, rec, { ceka: true })); }
+  if (!ok) pin.set(hraje.book, Object.assign({}, rec, { ceka: true }));
   ukazPin();
-};
+}
 
 el('bNaPin').onclick = () => {
   if (!hraje) return;
@@ -864,10 +864,13 @@ function ukazSpanek() {
   b.textContent = `časovač ${Math.floor(zbyva / 60)}:${String(zbyva % 60).padStart(2, '0')}`;
 }
 el('bSpanek').onclick = () => {
+  const zapina = spanekVolba === 0;        // z vypnutého do zapnutého, tedy jdu spát
   spanekVolba = SPANEK[(SPANEK.indexOf(spanekVolba) + 1) % SPANEK.length];
   doKonceStopy = spanekVolba === -1;
   spanekDo = spanekVolba > 0 ? Date.now() + spanekVolba * 60000 : 0;
   ukazSpanek(); zmerPrehravac();
+  // jen při zapnutí; další ťuknutí délku jen mění a místo nechávají být
+  if (zapina && spanekVolba !== 0) oznacMisto();
 };
 setInterval(() => {
   if (spanekVolba === 0 || doKonceStopy) return;

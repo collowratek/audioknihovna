@@ -232,6 +232,28 @@ složku s pozicemi a potvrdit, že tři rozposlouchané knihy ukazují svoje ča
 Na nasazení samotném nic nezáviselo, výměna stránky do složky nezapisuje,
 ale ověřit to musí Jiří na telefonu, nebo přihlásit knihovnu v prohlížeči.
 
+### Zjednodušení po nasazení: místo se označí samo časovačem
+
+Jiří po nasazení řekl, že ruční tlačítko na označení místa je zbytečné: stačí,
+aby si knihovna pamatovala, kde byl v okamžiku, kdy zapnul časovač. Má pravdu,
+a je to lepší než původní návrh. Časovač si před spaním dá vždycky, protože bez
+něj by kniha hrála celou noc, kdežto na zvláštní tlačítko se dá zapomenout.
+Navíc po tmě ubude jedno tlačítko.
+
+Provedeno: tlačítko na ruční označení zrušeno, časovač přesunut do horní řady,
+kde je vidět i ve sbaleném přehrávači (předtím byl ve spodní řadě, kterou
+sbalený přehrávač schovává, takže se ve tmě ani nedal zapnout). V horní řadě
+jsou teď dvě tlačítka: časovač a návrat na označené místo. Místo se zapíše při
+přechodu z vypnutého časovače na zapnutý; další ťuknutí jen mění délku a místem
+nehýbe. Název souboru na síti si drží typ p, aby zůstaly čitelné záznamy
+z dřívějška.
+
+Ověřeno 22 kritérii: označení při zapnutí, nehybnost při prodlužování i při
+dalším poslechu, nové označení po vypnutí a novém zapnutí, celý noční průběh
+včetně doběhnutí časovače a ranního návratu jedním ťuknutím, přenos na druhé
+zařízení, obě tlačítka 46 bodů vysoká a celá uvnitř displeje 375 bodů ve
+sbaleném přehrávači, a zapnutí časovače, když nic nehraje.
+
 ### Nález z nasazené verze: skok na čas prohlížeč občas zahodí
 
 Na nasazené verzi se skok na jinou stopu neprovedl: prohlížeč seek zadaný ve

@@ -21,9 +21,10 @@ připojí k ukládanému místu. Každý tak má svůj rozposlouchaný čas, ani
 potřeboval vlastní účet nebo přihlášení. Kdo kód nezadá, chová se knihovna
 přesně jako dnes.
 
-**Pin.** Tlačítko, kterým si posluchač před usnutím označí, kde právě je.
-Druhým tlačítkem se tam kdykoli vrátí, i ráno a i na jiném zařízení. Pin
-zůstává, dokud ho posluchač nepřepíše, a běžný posun v knize ho nemaže.
+**Místo, kde jsem šel spát.** Zapíše se samo ve chvíli, kdy posluchač zapne
+časovač, protože to je ten okamžik, kdy jde spát. Jedním tlačítkem se tam
+kdykoli vrátí, i ráno a i na jiném zařízení. Místo zůstává, dokud posluchač
+časovač znovu nezapne, a běžný posun v knize ho nemaže.
 
 ## Co to má umět
 
@@ -36,18 +37,19 @@ zůstává, dokud ho posluchač nepřepíše, a běžný posun v knize ho nemaž
    dnešní chování vyhovuje.
 4. Jako posluchač, který kód zadá poprvé, chci navázat tam, kde knihovna skončila
    doteď, abych nezačínal od začátku knihy.
-5. Jako posluchač chci jedním stiskem uložit pin na místo, kde právě poslouchám,
-   abych se tam ráno vrátil.
-6. Jako posluchač chci jedním stiskem skočit na pin, aniž bych hledal čas
+5. Jako posluchač nechci na nic zvláštního mačkat, než usnu. Místo se má
+   označit samo, když zapnu časovač, protože ten si dávám vždycky.
+6. Jako posluchač chci jedním stiskem skočit zpátky, aniž bych hledal čas
    převíjením.
-7. Jako posluchač chci, aby pin přežil zavření stránky i přechod na jiné zařízení.
-8. Jako posluchač chci, aby mi pin nepřepsalo běžné přehrávání, protože po jeho
-   uložení zpravidla ještě chvíli poslouchám.
-9. Jako posluchač chci pin ovládat jednou rukou v posteli a po tmě: krátkým
-   ťuknutím, bez přidržení, bez potvrzovacího dotazu, i když mám přehrávač
-   sbalený.
-10. Jako posluchač bez kódu chci pin taky, protože kód je nepovinný a pin je
-    užitečnější než rozdělení posluchačů.
+7. Jako posluchač chci, aby to místo přežilo zavření stránky i přechod na jiné
+   zařízení.
+8. Jako posluchač chci, aby mi je nepřepsalo běžné přehrávání, protože po
+   zapnutí časovače ještě chvíli poslouchám, a ani další ťuknutí do časovače,
+   kterým si jen prodlužuju dobu.
+9. Jako posluchač chci časovač i návrat ovládat jednou rukou v posteli a po tmě:
+   krátkým ťuknutím, bez přidržení, bez potvrzovacího dotazu, i když mám
+   přehrávač sbalený.
+10. Jako posluchač bez kódu chci návrat taky, protože kód je nepovinný.
 11. Jako posluchač chci, aby se mezi zařízeními přenášela i nastavená délka
     přeskoku, abych ji nemusel nastavovat na každém zařízení zvlášť.
 
@@ -58,16 +60,19 @@ zůstává, dokud ho posluchač nepřepíše, a běžný posun v knize ho nemaž
 - Bez zadaného kódu se knihovna chová stejně jako před změnou, dosavadní uložená
   místa zůstávají čitelná a žádné se nesmaže.
 - Posluchač, který si kód zadá poprvé, pokračuje tam, kde kniha byla.
-- Pin funguje i bez zadaného kódu.
-- Pin uložený v jednom prohlížeči je po zavření a otevření stránky pořád tam.
-- Pin uložený v jednom prohlížeči se objeví i ve druhém, pod stejným kódem.
-- Pin uložený pod jedním kódem není vidět pod jiným kódem.
-- Po uložení pinu a dalších pěti minutách poslechu je pin na původním místě.
-- Piny ve dvou různých knihách existují vedle sebe a nepletou se.
-- Skok na pin uloží jako místo v knize čas pinu, nikdy ne nulu. (Posluchač
-  od pinu poslouchá dál, takže se místo posunout má; hlídá se jen to, aby
-  skok nepřepsal rozposlouchané místo nulou.)
-- Tlačítka pinu jsou vidět i ve sbaleném přehrávači a jsou vysoká aspoň 44 bodů.
+- Zapnutí časovače označí místo, kde posluchač je. Další ťuknutí, kterým si jen
+  mění délku, místem nehne. Po vypnutí a novém zapnutí se označí místo nové.
+- Návrat funguje i bez zadaného kódu.
+- Označené místo je po zavření a otevření stránky pořád tam.
+- Označené místo z jednoho prohlížeče se objeví i ve druhém, pod stejným kódem.
+- Označené místo pod jedním kódem není vidět pod jiným kódem.
+- Po dalších pěti minutách poslechu je označené místo pořád tam, kde bylo.
+- Označená místa ve dvou různých knihách existují vedle sebe a nepletou se.
+- Návrat uloží jako místo v knize čas, na který se skáče, nikdy ne nulu.
+  (Posluchač odtamtud poslouchá dál, takže se místo posunout má; hlídá se jen
+  to, aby skok nepřepsal rozposlouchané místo nulou.)
+- Časovač i návrat jsou vidět i ve sbaleném přehrávači a jsou vysoké aspoň
+  44 bodů.
 - Při šířce displeje 375 bodů leží obě tlačítka celá uvnitř obrazovky, měřeno
   jejich skutečnou polohou, ne okem.
 - Nastavená délka přeskoku se objeví i na druhém zařízení pod stejným kódem.
@@ -78,8 +83,11 @@ zůstává, dokud ho posluchač nepřepíše, a běžný posun v knize ho nemaž
   zvolili stejný kód. Když se trefí do stejného, sdílejí pozice, což je přesně
   dnešní stav, takže se nic nezhorší. Takhle to navrhl Fanda a souhlasíme.
 - Žádný seznam posluchačů ani přepínání mezi nimi na jedno kliknutí.
-- Jen jeden pin na knihu a posluchače, ne víc záložek.
-- Pin není vidět v seznamu knih, jen v přehrávači.
+- Jen jedno označené místo na knihu a posluchače, ne víc záložek.
+- Ruční tlačítko na označení místa. Zkusilo se a zrušilo: časovač si posluchač
+  dá před spaním vždycky, kdežto na zvláštní tlačítko se dá zapomenout, a dvě
+  tlačítka po tmě jsou o jedno moc.
+- Označené místo není vidět v seznamu knih, jen v přehrávači.
 - Žádná fronta na zápisy, které se nepovedly kvůli výpadku sítě. Pin se v takovém
   případě uloží do prohlížeče a knihovna o tom dá vědět, odeslání se zkusí při
   dalším zápisu.
@@ -94,7 +102,7 @@ tedy může napsat do pole cokoli a nic se nerozbije.
 
 **Nový tvar názvu má pevný počet polí a jiný začátek než dnešní.** Dnešní
 záznamy začínají `poz_`, nové začínají jinak a nesou navíc kód a typ záznamu
-(místo, nebo pin). Díky tomu jde přesně zacílit, co se při úklidu smí smazat,
+(rozposlouchané místo, nebo místo, kde šel posluchač spát). Díky tomu jde přesně zacílit, co se při úklidu smí smazat,
 a dnešní záznamy zůstanou nedotčené.
 
 **Dnešní záznamy se už nikdy nebudou mazat ani přepisovat, jen číst.** Je jich
