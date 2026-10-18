@@ -49,6 +49,11 @@ Projít je i očima:
    řádek nad ní je mimo jejich dosah.
 3. **Práce s přihlášením.** `wst`, `localStorage`, `#t=`, `postMessage`.
    Přihlášení nemá v kódu co dělat nikde jinde než ve volání Webshare.
+4. **Otisk programu.** Pravidla nesou otisk (sha256) programu ve stránce.
+   Když návrh sahá do `script` a otisk v pravidlech se nemění, něco nesedí:
+   buď ho přispěvatel zapomněl přepočítat (stránka se pak vůbec nespustí),
+   nebo se o to pokusil obejít. A naopak, změna otisku bez změny programu
+   nedává smysl. Ověří to `python3 otisk.py`, musí skončit nulou.
 
 Sloučení dělá jen Jiří, až si změnu přečte.
 
