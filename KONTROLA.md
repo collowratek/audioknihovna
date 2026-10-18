@@ -20,7 +20,9 @@ protože Webshare nenabízí přístup jen pro čtení.
 | Pojistka proti odeslání ven (CSP) | prošlo | Viz níže. |
 | Kontrola kvality kódu | 12 nálezů | Vlastní kontrola na nejvyšší úroveň přes celý soubor. Seznam níže. |
 | Druhý názor od jiného modelu | 6 nálezů navíc | Codex (GPT-6), samostatný běh bez znalosti téhle práce. Seznam níže. |
-| Opravy nálezů | hotovo | Devět nálezů opraveno, zbytek je rozhodnutí pro Jiřího. |
+| Druhý názor, druhé kolo | bez nálezu | Codex znovu, 18. 10., po opravách. Žádné tajemství, žádná cesta k účtu čtením repa ani otevřením stránky, opravy z prvního kola sedí. Jeho čtyři zbylá rizika jsou ta, co stojí níže. |
+| Vestavěná bezpečnostní kontrola | 5 nálezů | 18. 10., celý soubor i historie gitu, nezávisle na předchozích koly. Tři opraveny, dva jsou rozhodnutí pro Jiřího. |
+| Opravy nálezů | hotovo | Devět nálezů z prvních kol, tři z posledního. Zbytek je rozhodnutí pro Jiřího. |
 | Zkouška celé cesty s přihlášením | čeká | Knihovna není přihlášená v žádném prohlížeči na notebooku, token je na telefonu. |
 
 ## Pojistka proti odeslání přihlášení jinam
@@ -85,6 +87,52 @@ jako nezávislý druhý model šest dalších. Ty podstatné:
   přes volání, které už v programu je. K tomu není potřeba žádná cizí adresa.
 - **Předání oknu, které stránku otevřelo** (`postMessage`).
 
+## Poslední kolo, 18. 10. 2026
+
+Proběhly dvě kontroly, které v předchozím kole chyběly: Codex podruhé (po
+opravách, znovu bez znalosti téhle práce) a vestavěná bezpečnostní kontrola
+přes celý soubor i historii gitu.
+
+Codex podruhé nenašel nic nového. Potvrdil, že v souboru není žádné tajemství,
+že čtením repozitáře ani otevřením stránky se nikdo k účtu nedostane a že
+opravy z prvního kola jsou na místě a nic nerozbily.
+
+Vestavěná kontrola našla pět věcí. Tři jsou opravené a vyzkoušené v prohlížeči:
+
+1. **Klíč z adresy se bral bez ptaní.** Obsluha `#t=` uložila cokoli, co
+   v odkazu přišlo, přepsala tím uložený klíč a hned uklidila adresní řádek.
+   Kdo Jiřímu podstrčí odkaz `…/audioknihovna/#t=<svůj klíč>`, ten mu vymění
+   přihlášení za své a od té chvíle mu každá minuta poslechu zapisuje pozici
+   do CIZÍHO účtu na Webshare. Odkaz přitom vede na jeho vlastní známou adresu.
+   Teď se knihovna zeptá a napíše, že nějaký klíč už uložený je.
+2. **Pravidla pouštěla jakýkoli program napsaný přímo ve stránce**
+   (`script-src 'unsafe-inline'`). Proti cizímu souboru se skriptem to platilo,
+   proti řádku přidanému do stránky v pull requestu ne. Místo toho je tam teď
+   OTISK (sha256) toho jednoho programu, který ve stránce je. Kdo v něm změní
+   jediný znak a nepřepíše otisk, tomu se stránka vůbec nespustí. Změna programu
+   je tím pádem vidět i v pravidlech a nemůže proklouznout jako úprava vzhledu.
+   Přepočet dělá `otisk.py`, pravidlo je v `CONTRIBUTING.md`.
+3. **Stránku šlo vložit do cizího rámu.** Zakázat to hlavičkou nejde (GitHub
+   Pages hlavičky neumí) a v meta značce prohlížeče `frame-ancestors` ignorují.
+   Program se teď v rámu sám zastaví. Rám byl nosič pro bod 1 i pro klamné
+   kliknutí na tlačítka přehrávače.
+
+K tomu dvě drobnosti: `esc` ošetřuje i apostrof (dnes jsou všechny atributy
+v dvojitých uvozovkách, takže to nic neřešilo, ale byla to past na prvního
+přispěvatele) a z pravidel vypadla dvě mrtvá oprávnění (`style-src 'self'`,
+`media-src data:`). Adresa `data:` u obrázků zůstává, drží ikonu na ploše.
+
+Jedno tvrzení kontroly neplatí a opravuji ho tady, ať se nevrací: že
+`script-src-attr` neumí Safari. Umí ho od prosince 2022, takže ta direktiva
+funguje i na telefonu. Otisk ji stejně dělá nadbytečnou, zůstává jako pojistka.
+
+Vyzkoušeno v prohlížeči na místním serveru: stránka se s otiskem spustí a
+přihlašovací obrazovka i tlačítka fungují (kdyby otisk neseděl, nenaběhlo by
+vůbec nic), odkaz s `#t=` ukáže potvrzení a do paměti nic nezapíše, dokud
+člověk nepotvrdí, zahození vrátí přihlašovací obrazovku, potvrzení klíč uloží,
+a knihovna vložená do rámu na cizím webu se nespustí a napíše proč. Žádné
+hlášení o porušení pravidel v konzoli.
+
 **Rozhodnutí pro Jiřího, sám jsem je neudělal:**
 
 - **Sdílená adresa.** Přihlášení v prohlížeči patří celé adrese
@@ -98,6 +146,13 @@ jako nezávislý druhý model šest dalších. Ty podstatné:
   přihlášení dostalo ven, týká se jen audioknih.
 - **Heslo projde programem v čitelné podobě**, než se zašifruje. Kdo může měnit
   program, může ho odchytit. Platí pro každého, kdo smí nasazovat.
+- **Tenhle soubor a `PREDANI.md` jsou veřejné.** Je v nich přesný seznam toho,
+  co pravidla neuhlídají, vedle pozvánky „posílejte pull requesty". Dá se to
+  vyjmout z repozitáře (`.gitignore`) nebo přesunout do soukromého. Pozor na
+  dvě věci: z historie gitu to tím nezmizí a stejný seznam je i v komentáři
+  nad pravidly přímo v `index.html`, takže půlka opatření nestačí. Můj názor:
+  spíš nechat, poctivý popis je pro přispěvatele užitečnější, než je ta
+  úspora pro útočníka. Ale je to rozhodnutí, ne samozřejmost.
 
 Verdikt kontrolora (Codex, GPT-6, viděl kód poprvé a nevěděl o téhle práci):
 pravidla jsou užitečná vrstva navíc a zkoušky prokázaly, že blokují cizí cíle,

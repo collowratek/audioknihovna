@@ -6,18 +6,21 @@
      Knihovna drží v prohlížeči přihlášení k Webshare. Kdyby se do stránky
      dostal řádek, který ho pošle na cizí adresu, prohlížeč to podle těchto
      pravidel zablokuje: mluvit se smí jen s Webshare, obrázky a zvuk se smí
-     brát jen odtamtud, cizí ani vlastní soubor se skriptem se nespustí
-     a nespustí se ani obsluha události zapsaná do HTML (onclick, onerror).
+     brát jen odtamtud a nespustí se žádný soubor se skriptem.
      POZOR: pravidla platí teprve od tohoto řádku dolů, takže nad ně nesmí
      přibýt nic, co se spouští. Proto jsou hned za kódováním znaků.
-     Adresa data: u zvuku je tu schválně, aby šlo zkoušet přehrávání
-     bez Webshare; nic nikam neposílá.
+     POZOR 2: script-src nese OTISK (sha256) programu ve stránce. Kdo změní
+     jediný znak uvnitř <script>, musí přepočítat i tenhle otisk, jinak se
+     stránka vůbec nespustí. Je to schválně: změna programu je pak vidět
+     i tady nahoře, a nemůže proklouznout jako úprava vzhledu.
+     Přepočet i kontrola:  python3 otisk.py --zapis
+     Adresa data: u obrázků je kvůli ikoně na ploše (apple-touch-icon).
      Nová adresa služby se sem musí dopsat, jinak přestane fungovat.
      Pravidla musí být v meta značce, protože GitHub Pages neumí hlavičky.
-     Neumí tři věci: zabránit odchodu dat přesměrováním stránky, zabránit
-     zneužití samotného Webshare (povolený cíl je povolený cíl) a zakázat
-     vložení stránky do cizího rámu. Tohle hlídá jedině kontrola změn. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; script-src-attr 'none'; worker-src 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://*.wsfiles.cz; media-src data: https://*.wsfiles.cz; connect-src https://webshare.cz https://upload2.wsup.cz; base-uri 'none'; object-src 'none'; form-action 'none'">
+     Neumí dvě věci: zabránit odchodu dat přesměrováním stránky a zabránit
+     zneužití samotného Webshare (povolený cíl je povolený cíl). Tohle hlídá
+     jedině kontrola změn. Vložení do cizího rámu řeší program sám. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-fu24u1xYqpmb7Jbi+MZhsOKiPk7AsRTiZjsgfDJZkio='; script-src-attr 'none'; worker-src 'none'; style-src 'unsafe-inline'; img-src 'self' data: https://*.wsfiles.cz; media-src https://*.wsfiles.cz; connect-src https://webshare.cz https://upload2.wsup.cz; base-uri 'none'; object-src 'none'; form-action 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#07040f">
 <title>Audioknihovna</title>
@@ -247,6 +250,18 @@
 
 <script>
 'use strict';
+
+/* V cizím rámu se knihovna nespouští. Rám je nosič pro podstrčení klíče
+   adresou (#t=) i pro klamné kliknutí na tlačítka přehrávače. Zakázat ho
+   hlavičkou nejde, GitHub Pages hlavičky neumí, a v meta značce prohlížeče
+   frame-ancestors podle normy ignorují. Tohle je tedy jediná cesta.     */
+if (window.top !== window.self) {
+  // vlastni vrstva: pozadi stranky (body::before a ::after) hlasku prekryva
+  document.body.innerHTML = '<p style="position:relative;z-index:9;padding:24px;'
+    + 'font:15px/1.6 sans-serif;color:#eae6ff">Audioknihovna se v cizím rámu '
+    + 'nespouští. Otevři ji na vlastní adrese.</p>';
+  throw new Error('v cizím rámu se knihovna nespouští');
+}
 const API = 'https://webshare.cz/api/';
 const ROOT = '/audioknihy';
 const UUID = 'player-' + (localStorage.getItem('uuid') || (() => {
@@ -593,7 +608,10 @@ const poradi = (a, b) => {
   if (ia !== -1 || ib !== -1) return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
   return a.name.localeCompare(b.name, 'cs');
 };
-const esc = s => s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+/* Apostrof je v seznamu schvalne: dnes jsou vsechny atributy v sablonach
+   v dvojitych uvozovkach, ale atribut zapsany v apostrofech by bez nej byl
+   dira. Takhle na tom nezalezi.                                          */
+const esc = s => s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 function splitName(n) {
   const i = n.indexOf(' - ');
   return i > 0 ? { author: n.slice(0, i), title: n.slice(i + 3) } : { author: '', title: n };
@@ -1163,18 +1181,40 @@ ukazKrok(); ukazSpanek();
 
 window.addEventListener('beforeunload', save);
 
-/* Token lze předat v adrese (#t=…) — na telefonu se nic nepřepisuje.
-   Hned ho z adresního řádku odstraníme, ať tam nezůstane viset.       */
+/* Klíč lze předat v adrese (#t=…), což je pohodlný přenos na telefon.
+   Touž cestou ale jde podstrčit CIZÍ klíč: odkaz vede na známou adresu
+   knihovny, bez ptaní by přepsal uložený klíč a pozice poslechu by se od
+   té chvíle ukládaly do cizího účtu. Proto se vždycky ptáme.           */
+function screenToken(t) {
+  const mame = !!WST;
+  app.innerHTML = `<div class="login">
+    <div class="kick">Webshare · soukromý archiv</div>
+    <h2>Klíč<br>z odkazu</h2>
+    <p>Tenhle odkaz s sebou nese přihlašovací klíč k Webshare.${mame
+      ? ' V tomhle prohlížeči už jeden uložený je a použitím se přepíše.' : ''}</p>
+    <p>Použij ho jen tehdy, když sis odkaz poslal sám. Klíč otevírá celý účet,
+      včetně mazání souborů.</p>
+    <button class="btn btn-acc" id="tAno" style="width:100%;padding:13px">Použít klíč</button>
+    <div style="margin-top:17px">
+      <button id="tNe" style="font:600 11px/1 var(--mono);letter-spacing:.12em;
+        text-transform:uppercase;color:var(--cyan)">Zahodit ›</button>
+    </div>
+  </div>`;
+  el('tAno').onclick = () => { WST = t; localStorage.setItem('wst', t); screenLibrary(); };
+  el('tNe').onclick = () => { WST ? screenLibrary() : screenLogin(); };
+}
+
 (() => {
   const m = location.hash.match(/[#&]t=([^&]+)/);
   if (m) {
     // pri rozbitem zapisu adresy by decodeURIComponent vyhodil chybu
-    // a prihlaseni by zustalo viset v adresnim radku
+    // a klic by zustal viset v adresnim radku
     let t = m[1];
     try { t = decodeURIComponent(t); } catch { /* bereme, jak prislo */ }
-    WST = t.replace(/[\s ​]/g, '');
-    localStorage.setItem('wst', WST);
+    t = ocisti(t);
+    // z adresniho radku pryc hned, at se nikam nezkopiruje ani nezustane v historii
     history.replaceState(null, '', location.pathname + location.search);
+    if (t) return screenToken(t);
   }
   WST ? screenLibrary() : screenLogin();
 })();

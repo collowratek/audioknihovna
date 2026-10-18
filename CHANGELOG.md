@@ -2,6 +2,17 @@
 
 Nejnovější nahoře. Podrobnosti jsou v popisech jednotlivých uložených verzí.
 
+## 18. 10. 2026
+
+- Pravidla `Content-Security-Policy` nově nesou otisk programu ve stránce.
+  Cizí řádek přidaný do programu se bez přepsání otisku nespustí. Přepočet
+  dělá `otisk.py`.
+- Klíč předaný v adrese (`#t=`) se uloží až po potvrzení na obrazovce. Dřív
+  se uložil sám, takže šlo odkazem podstrčit cizí přihlášení.
+- V cizím rámu se knihovna nespustí.
+- `esc` ošetřuje i apostrof.
+- Z pravidel vypuštěna mrtvá oprávnění (`style-src 'self'`, `media-src data:`).
+
 ## 16. 10. 2026
 
 - Pravidla `Content-Security-Policy` proti odeslání přihlášení na cizí adresu.
