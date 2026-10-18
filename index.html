@@ -2,6 +2,22 @@
 <html lang="cs">
 <head>
 <meta charset="utf-8">
+<!-- Pojistka proti odeslání přihlášení jinam.
+     Knihovna drží v prohlížeči přihlášení k Webshare. Kdyby se do stránky
+     dostal řádek, který ho pošle na cizí adresu, prohlížeč to podle těchto
+     pravidel zablokuje: mluvit se smí jen s Webshare, obrázky a zvuk se smí
+     brát jen odtamtud, cizí ani vlastní soubor se skriptem se nespustí
+     a nespustí se ani obsluha události zapsaná do HTML (onclick, onerror).
+     POZOR: pravidla platí teprve od tohoto řádku dolů, takže nad ně nesmí
+     přibýt nic, co se spouští. Proto jsou hned za kódováním znaků.
+     Adresa data: u zvuku je tu schválně, aby šlo zkoušet přehrávání
+     bez Webshare; nic nikam neposílá.
+     Nová adresa služby se sem musí dopsat, jinak přestane fungovat.
+     Pravidla musí být v meta značce, protože GitHub Pages neumí hlavičky.
+     Neumí tři věci: zabránit odchodu dat přesměrováním stránky, zabránit
+     zneužití samotného Webshare (povolený cíl je povolený cíl) a zakázat
+     vložení stránky do cizího rámu. Tohle hlídá jedině kontrola změn. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; script-src-attr 'none'; worker-src 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://*.wsfiles.cz; media-src data: https://*.wsfiles.cz; connect-src https://webshare.cz https://upload2.wsup.cz; base-uri 'none'; object-src 'none'; form-action 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#07040f">
 <title>Audioknihovna</title>
@@ -489,13 +505,18 @@ async function ulozNaSit(kniha, rec, typ) {
 /* ---------- pomocne ---------- */
 /* Místní paměť je oddělená pro každý kód. Kdo si kód zadá poprvé, čte ještě
    z dosavadního společného záznamu, dokud si nevytvoří vlastní.        */
+/* Čísla se po přečtení z paměti prohlížeče převedou na čísla. Co v paměti
+   leží, mohl zapsat i někdo jiný, a stopa ani čas se pak nesmí dostat do
+   stránky jako text.                                                   */
+const cisla = z => z && { idx: +z.idx || 0, time: +z.time || 0,
+                          n: +z.n || 0, ts: +z.ts || 0, ceka: !!z.ceka };
 const pos = {
   klic(b) { return 'pos:' + kodOtisk() + ':' + b; },
   get(b) {
     try {
       const vlastni = localStorage.getItem(this.klic(b));
-      if (vlastni) return JSON.parse(vlastni);
-      return JSON.parse(localStorage.getItem('pos:' + b));
+      if (vlastni) return cisla(JSON.parse(vlastni));
+      return cisla(JSON.parse(localStorage.getItem('pos:' + b)));
     } catch { return null; }
   },
   set(b, v) { localStorage.setItem(this.klic(b), JSON.stringify(v)); }
@@ -506,7 +527,7 @@ const pos = {
    pořád typ p, aby zůstaly čitelné záznamy z dřívějška.                */
 const pin = {
   klic(b) { return 'pin:' + kodOtisk() + ':' + b; },
-  get(b) { try { return JSON.parse(localStorage.getItem(this.klic(b))); } catch { return null; } },
+  get(b) { try { return cisla(JSON.parse(localStorage.getItem(this.klic(b)))); } catch { return null; } },
   set(b, v) { localStorage.setItem(this.klic(b), JSON.stringify(v)); }
 };
 
@@ -1067,7 +1088,7 @@ async function loadCover(book) {
     document.querySelectorAll('[data-cov]').forEach(box => {
       if (box.dataset.cov !== book) return;
       box.classList.remove('ph');
-      box.innerHTML = `<img src="${coverCache[book]}" alt="">`;
+      box.innerHTML = `<img src="${esc(coverCache[book])}" alt="">`;
     });
   } catch { /* obálka je bonus, ne nutnost */ }
 }
@@ -1093,7 +1114,7 @@ async function screenBook(book) {
   const p = pos.get(book);
   cur = { book, tracks: files, idx: p ? p.idx : 0, render: null };
   const real = !!coverCache[book];
-  const art = real ? `<img src="${coverCache[book]}" alt="">` : artHTML(book);
+  const art = real ? `<img src="${esc(coverCache[book])}" alt="">` : artHTML(book);
 
   const draw = () => {
     app.querySelector('main').innerHTML = `
@@ -1147,7 +1168,11 @@ window.addEventListener('beforeunload', save);
 (() => {
   const m = location.hash.match(/[#&]t=([^&]+)/);
   if (m) {
-    WST = decodeURIComponent(m[1]).replace(/[\s ​]/g, '');
+    // pri rozbitem zapisu adresy by decodeURIComponent vyhodil chybu
+    // a prihlaseni by zustalo viset v adresnim radku
+    let t = m[1];
+    try { t = decodeURIComponent(t); } catch { /* bereme, jak prislo */ }
+    WST = t.replace(/[\s ​]/g, '');
     localStorage.setItem('wst', WST);
     history.replaceState(null, '', location.pathname + location.search);
   }

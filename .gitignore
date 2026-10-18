@@ -1,0 +1,12 @@
+.DS_Store
+*.swp
+*.log
+node_modules/
+.env
+# zvukové soubory do repozitáře nepatří, archiv je na Webshare
+*.mp3
+*.m4a
+*.m4b
+*.wav
+*.ogg
+*.opus
